@@ -1,0 +1,176 @@
+package com.everything.app.feature.applock.service
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
+import android.provider.Settings
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import com.everything.app.EverythingApplication
+import com.everything.app.MainActivity
+import com.everything.app.R
+import com.everything.app.core.permissions.AppLockPermissionChecker
+import com.everything.app.core.session.AppLockSessionManager
+import com.everything.app.feature.applock.ui.LockActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.launch
+
+class AppMonitorService : Service() {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private lateinit var detector: ForegroundAppDetector
+    private lateinit var overlayController: LockOverlayController
+    private var lockedPackages = emptySet<String>()
+    private var lastForegroundPackage: String? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        detector = ForegroundAppDetector(this)
+        overlayController = LockOverlayController(
+            context = this,
+            credentialRepository = (application as EverythingApplication).container.credentialRepository,
+            onBiometricRequested = { packageName -> launchActivityLockScreen(packageName) },
+        )
+        startForeground(NOTIFICATION_ID, buildNotification())
+        observeLockedApps()
+        monitorForegroundApps()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!AppLockPermissionChecker.hasUsageAccess(this)) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        mainHandler.post { overlayController.dismiss() }
+        scope.cancel()
+        super.onDestroy()
+    }
+
+    private fun observeLockedApps() {
+        val repository = (application as EverythingApplication).container.appLockRepository
+        scope.launch {
+            repository.observeLockedApps()
+                .catch { lockedPackages = emptySet() }
+                .collect { apps ->
+                    lockedPackages = apps.map { it.packageName }.toSet()
+                }
+        }
+    }
+
+    private fun monitorForegroundApps() {
+        scope.launch {
+            while (true) {
+                val foregroundPackage = runCatching { detector.currentForegroundPackage() }.getOrNull()
+                if (foregroundPackage != null && foregroundPackage != lastForegroundPackage) {
+                    lastForegroundPackage = foregroundPackage
+                    AppLockSessionManager.keepOnly(foregroundPackage)
+                } else {
+                    AppLockSessionManager.clearExpired()
+                }
+
+                val shouldLock = foregroundPackage != null &&
+                    foregroundPackage != packageName &&
+                    foregroundPackage in lockedPackages &&
+                    !AppLockSessionManager.isAllowed(foregroundPackage)
+
+                foregroundPackage?.let { currentPackage ->
+                    if (shouldLock) {
+                        launchLockScreen(currentPackage)
+                    } else if (currentPackage !in lockedPackages) {
+                        mainHandler.post { overlayController.dismiss() }
+                    }
+                }
+
+                delay(POLL_INTERVAL_MILLIS)
+            }
+        }
+    }
+
+    private fun launchLockScreen(packageName: String) {
+        if (Settings.canDrawOverlays(this)) {
+            mainHandler.post {
+                overlayController.show(
+                    packageName = packageName,
+                    appLabel = resolveLabel(packageName),
+                )
+            }
+            return
+        }
+        mainHandler.post { launchActivityLockScreen(packageName) }
+    }
+
+    private fun launchActivityLockScreen(packageName: String) {
+        val intent = LockActivity.intent(this, packageName)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        startActivity(intent)
+    }
+
+    private fun resolveLabel(packageName: String): String {
+        return runCatching {
+            val info = packageManager.getApplicationInfo(packageName, 0)
+            packageManager.getApplicationLabel(info).toString()
+        }.getOrDefault(packageName)
+    }
+
+    private fun buildNotification() =
+        NotificationCompat.Builder(this, ensureChannel())
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(getString(R.string.app_lock_notification_title))
+            .setContentText(getString(R.string.app_lock_notification_text))
+            .setOngoing(true)
+            .setSilent(true)
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    Intent(this, MainActivity::class.java),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                ),
+            )
+            .build()
+
+    private fun ensureChannel(): String {
+        val manager = getSystemService(NotificationManager::class.java)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            getString(R.string.app_lock_notification_channel),
+            NotificationManager.IMPORTANCE_LOW,
+        )
+        manager.createNotificationChannel(channel)
+        return CHANNEL_ID
+    }
+
+    companion object {
+        private const val CHANNEL_ID = "everything_app_lock"
+        private const val NOTIFICATION_ID = 41
+        private const val POLL_INTERVAL_MILLIS = 750L
+
+        fun start(context: Context) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, AppMonitorService::class.java),
+            )
+        }
+
+        fun stop(context: Context) {
+            context.stopService(Intent(context, AppMonitorService::class.java))
+        }
+    }
+}

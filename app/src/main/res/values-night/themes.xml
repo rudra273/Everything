@@ -1,0 +1,21 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.Everything" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/indigo_primary</item>
+        <item name="colorPrimaryVariant">@color/deep_navy</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/teal_accent</item>
+        <item name="colorSecondaryVariant">@color/teal_accent</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <item name="android:navigationBarColor">@color/deep_navy</item>
+        <item name="android:statusBarColor">@color/deep_navy</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <style name="Theme.Everything.Lock" parent="Theme.Everything">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowFullscreen">false</item>
+    </style>
+</resources>

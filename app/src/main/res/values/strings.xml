@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Everything</string>
+    <string name="app_lock_foreground_service_reason">Monitors the current foreground app locally so selected apps can be locked on this device.</string>
+    <string name="app_lock_notification_channel">App Lock</string>
+    <string name="app_lock_notification_title">App Lock is active</string>
+    <string name="app_lock_notification_text">Selected apps are protected locally.</string>
+</resources>
