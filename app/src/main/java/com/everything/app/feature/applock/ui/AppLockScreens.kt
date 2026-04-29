@@ -1,7 +1,9 @@
 package com.everything.app.feature.applock.ui
 
 import android.content.ActivityNotFoundException
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,8 +31,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Security
@@ -62,15 +66,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.everything.app.AppContainer
+import com.everything.app.core.data.SecureSettingRepository
 import com.everything.app.core.permissions.AppLockPermissionState
 import com.everything.app.core.permissions.PermissionIntents
 import com.everything.app.core.ui.Cyan
@@ -258,44 +266,115 @@ fun DashboardScreen(
     AppSurface {
         Column(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(22.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            BrandHeader(
-                icon = Icons.Rounded.Shield,
-                title = "Everything",
-                subtitle = "Private tools",
-            )
-
-            Card(
-                onClick = onOpenAppLock,
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                border = BorderStroke(1.dp, Stroke),
+            // ── Header row: app icon + title ──
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Row(
-                    modifier = Modifier.padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Image(
+                    painter = painterResource(id = com.everything.app.R.drawable.everything),
+                    contentDescription = "Everything",
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = "Everything",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
+            // ── Section label ──
+            Text(
+                text = "Security Tools",
+                color = MutedText,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 1.2.sp,
+            )
+
+            // ── Tile grid ──
+            ToolTile(
+                icon = Icons.Rounded.Lock,
+                title = "App Lock",
+                subtitle = if (lockedCount > 0) "$lockedCount apps locked" else "No apps locked",
+                accentColor = Cyan,
+                onClick = onOpenAppLock,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ToolTile(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    accentColor: Color,
+    onClick: () -> Unit,
+) {
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        border = BorderStroke(1.dp, Stroke),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Box {
+            // subtle glow
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .align(Alignment.TopEnd)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(accentColor.copy(alpha = 0.12f), Color.Transparent),
+                            radius = 120f,
+                        ),
+                    ),
+            )
+            Column(modifier = Modifier.padding(20.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Brush.linearGradient(listOf(Teal, Cyan))),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    IconBadge(Icons.Rounded.Lock)
-                    Spacer(Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "App Lock",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = "$lockedCount apps locked",
-                            color = MutedText,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
+                    Icon(icon, contentDescription = null, tint = Color(0xFF001716), modifier = Modifier.size(26.dp))
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    color = MutedText,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "Open",
-                        color = Cyan,
+                        color = accentColor,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Icon(
+                        Icons.Rounded.ArrowBack,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .graphicsLayer { rotationZ = 180f },
                     )
                 }
             }
@@ -310,6 +389,8 @@ fun AppLockScreen(
     onBack: () -> Unit,
     onSelectionChanged: () -> Unit,
 ) {
+    BackHandler { onBack() }
+
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
     var installedApps by remember { mutableStateOf<List<InstalledApp>?>(null) }
@@ -317,6 +398,10 @@ fun AppLockScreen(
         .observeLockedApps()
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val lockedPackages = remember(lockedApps) { lockedApps.map { it.packageName }.toSet() }
+
+    val biometricEnabled by container.secureSettingRepository
+        .observeBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED)
+        .collectAsStateWithLifecycle(initialValue = false)
 
     LaunchedEffect(Unit) {
         installedApps = container.installedAppProvider.loadLaunchableApps()
@@ -337,20 +422,21 @@ fun AppLockScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(WindowInsets.statusBars.asPaddingValues())
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
                 }
+                Spacer(Modifier.width(4.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "App Lock",
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "${lockedApps.size} selected",
+                        text = "${lockedApps.size} apps protected",
                         color = MutedText,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -358,63 +444,211 @@ fun AppLockScreen(
             }
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(padding)
-                .padding(horizontal = 20.dp)
-                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-        ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MutedText) },
-                placeholder = { Text("Search apps") },
-                singleLine = true,
-                shape = RoundedCornerShape(8.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Cyan,
-                    unfocusedBorderColor = Stroke,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = Cyan,
-                    focusedPlaceholderColor = MutedText,
-                    unfocusedPlaceholderColor = MutedText,
-                    focusedContainerColor = Panel,
-                    unfocusedContainerColor = Panel,
-                ),
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            if (installedApps == null) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Cyan)
+        if (installedApps == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Cyan)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(padding)
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                // ── Fingerprint toggle ──
+                item {
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Panel),
+                        border = BorderStroke(1.dp, Stroke),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Rounded.Fingerprint,
+                                contentDescription = null,
+                                tint = if (biometricEnabled == true) Cyan else MutedText,
+                                modifier = Modifier.size(24.dp),
+                            )
+                            Spacer(Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Use Fingerprint",
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = if (biometricEnabled == true) "Enabled" else "Disabled",
+                                    color = MutedText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Switch(
+                                checked = biometricEnabled == true,
+                                onCheckedChange = { enabled ->
+                                    scope.launch {
+                                        container.secureSettingRepository.putBoolean(
+                                            SecureSettingRepository.KEY_BIOMETRIC_ENABLED,
+                                            enabled,
+                                        )
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color(0xFF001716),
+                                    checkedTrackColor = Cyan,
+                                    uncheckedThumbColor = SoftText,
+                                    uncheckedTrackColor = PanelAlt,
+                                    uncheckedBorderColor = Stroke,
+                                ),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
                 }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    items(filteredApps, key = { it.packageName }) { app ->
-                        AppSelectionRow(
-                            app = app,
-                            checked = app.packageName in lockedPackages,
-                            onCheckedChange = { checked ->
+
+                // ── Locked Apps section ──
+                if (lockedApps.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Locked Apps",
+                            color = Cyan,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.8.sp,
+                            modifier = Modifier.padding(vertical = 6.dp),
+                        )
+                    }
+                    items(lockedApps, key = { "locked_${it.packageName}" }) { app ->
+                        LockedAppRow(
+                            label = app.label,
+                            packageName = app.packageName,
+                            onRemove = {
                                 scope.launch {
                                     container.appLockRepository.setLocked(
                                         packageName = app.packageName,
                                         label = app.label,
-                                        locked = checked,
+                                        locked = false,
                                     )
                                     onSelectionChanged()
                                 }
                             },
                         )
                     }
+                    item { Spacer(Modifier.height(10.dp)) }
                 }
+
+                // ── All apps section ──
+                item {
+                    Text(
+                        text = "All Apps",
+                        color = MutedText,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.8.sp,
+                        modifier = Modifier.padding(vertical = 6.dp),
+                    )
+                }
+
+                // Search
+                item {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MutedText) },
+                        placeholder = { Text("Search apps") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Cyan,
+                            unfocusedBorderColor = Stroke,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Cyan,
+                            focusedPlaceholderColor = MutedText,
+                            unfocusedPlaceholderColor = MutedText,
+                            focusedContainerColor = Panel,
+                            unfocusedContainerColor = Panel,
+                        ),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                items(filteredApps, key = { it.packageName }) { app ->
+                    AppSelectionRow(
+                        app = app,
+                        checked = app.packageName in lockedPackages,
+                        onCheckedChange = { checked ->
+                            scope.launch {
+                                container.appLockRepository.setLocked(
+                                    packageName = app.packageName,
+                                    label = app.label,
+                                    locked = checked,
+                                )
+                                onSelectionChanged()
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LockedAppRow(
+    label: String,
+    packageName: String,
+    onRemove: () -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Cyan.copy(alpha = 0.08f)),
+        border = BorderStroke(1.dp, Cyan.copy(alpha = 0.18f)),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Cyan.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = label.firstOrNull()?.uppercase() ?: "#",
+                    color = Cyan,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = packageName,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MutedText,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Rounded.LockOpen, contentDescription = "Unlock", tint = Cyan, modifier = Modifier.size(20.dp))
             }
         }
     }

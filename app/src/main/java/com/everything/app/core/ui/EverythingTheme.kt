@@ -20,15 +20,18 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-val DeepBackground = Color(0xFF050914)
-val Panel = Color(0xFF0C1326)
-val PanelAlt = Color(0xFF111A33)
+// ── Palette (derived from app icon: deep navy + teal/cyan) ──
+val DeepBackground = Color(0xFF060B18)
+val Panel = Color(0xFF0E1528)
+val PanelAlt = Color(0xFF131D38)
+val NavyBlue = Color(0xFF1B2547)
 val Indigo = Color(0xFF101A4D)
 val Cyan = Color(0xFF18E0D2)
 val Teal = Color(0xFF17BFAE)
+val CardGlow = Color(0xFF0CFCE5) // bright highlight for subtle glow effects
 val SoftText = Color(0xFFC8D1E8)
 val MutedText = Color(0xFF7D88A8)
-val Stroke = Color(0xFF263152)
+val Stroke = Color(0xFF1E2D4A)
 
 private val EverythingColors = darkColorScheme(
     primary = Indigo,
@@ -67,7 +70,7 @@ fun GradientButton(
         enabled = enabled,
         modifier = modifier
             .height(52.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(Brush.horizontalGradient(listOf(Teal, Cyan))),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
@@ -92,7 +95,7 @@ fun QuietButton(
     Button(
         onClick = onClick,
         modifier = modifier.height(48.dp),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, Stroke),
         colors = ButtonDefaults.buttonColors(
             containerColor = PanelAlt,
@@ -111,6 +114,6 @@ fun FullWidthDivider() {
         modifier = Modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(Stroke.copy(alpha = 0.7f)),
+            .background(Stroke.copy(alpha = 0.5f)),
     )
 }
