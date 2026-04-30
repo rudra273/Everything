@@ -69,8 +69,8 @@ fun GradientButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
-            .height(52.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .height(44.dp)
+            .clip(RoundedCornerShape(10.dp))
             .background(Brush.horizontalGradient(listOf(Teal, Cyan))),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
@@ -94,8 +94,8 @@ fun QuietButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(48.dp),
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.height(40.dp),
+        shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, Stroke),
         colors = ButtonDefaults.buttonColors(
             containerColor = PanelAlt,

@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,7 +33,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
@@ -43,9 +44,6 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -75,6 +73,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -266,14 +265,12 @@ fun DashboardScreen(
     onOpenAppLock: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
-
     AppSurface {
         Column(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // ── Header row: app icon + title + menu ──
+            // ── Header row: app icon + title + settings ──
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
@@ -282,47 +279,23 @@ fun DashboardScreen(
                     painter = painterResource(id = com.everything.app.R.drawable.everything),
                     contentDescription = "Everything",
                     modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(10.dp)),
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(8.dp)),
                 )
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(10.dp))
                 Text(
                     text = "Everything",
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f),
                 )
-                Box {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(
-                            Icons.Rounded.Settings,
-                            contentDescription = "Settings",
-                            tint = SoftText,
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                        containerColor = Panel,
-                        border = BorderStroke(1.dp, Stroke),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Settings") },
-                            onClick = {
-                                menuExpanded = false
-                                onOpenSettings()
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Rounded.Settings,
-                                    contentDescription = null,
-                                    tint = MutedText,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            },
-                        )
-                    }
+                IconButton(onClick = onOpenSettings) {
+                    Icon(
+                        Icons.Rounded.Settings,
+                        contentDescription = "Settings",
+                        tint = SoftText,
+                        modifier = Modifier.size(22.dp),
+                    )
                 }
             }
 
@@ -330,89 +303,23 @@ fun DashboardScreen(
             Text(
                 text = "Security Tools",
                 color = MutedText,
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.2.sp,
             )
 
-            // ── Tile grid ──
-            ToolTile(
-                icon = Icons.Rounded.Lock,
-                title = "App Lock",
-                subtitle = if (lockedCount > 0) "$lockedCount apps locked" else "No apps locked",
-                accentColor = Cyan,
-                onClick = onOpenAppLock,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ToolTile(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    accentColor: Color,
-    onClick: () -> Unit,
-) {
-    Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel),
-        border = BorderStroke(1.dp, Stroke),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Box {
-            // subtle glow
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .align(Alignment.TopEnd)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(accentColor.copy(alpha = 0.12f), Color.Transparent),
-                            radius = 120f,
-                        ),
-                    ),
-            )
-            Column(modifier = Modifier.padding(20.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Brush.linearGradient(listOf(Teal, Cyan))),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(icon, contentDescription = null, tint = Color(0xFF001716), modifier = Modifier.size(26.dp))
-                }
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = subtitle,
-                    color = MutedText,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Open",
-                        color = accentColor,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
-                        Icons.Rounded.ArrowBack,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .graphicsLayer { rotationZ = 180f },
+            // ── Tool grid items ──
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(4),
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    ToolGridItem(
+                        iconResId = com.everything.app.R.drawable.ic_app_lock,
+                        title = "App Lock",
+                        onClick = onOpenAppLock,
                     )
                 }
             }
@@ -420,7 +327,47 @@ private fun ToolTile(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ToolGridItem(
+    iconResId: Int,
+    title: String,
+    onClick: () -> Unit,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Panel)
+                .border(1.dp, Stroke, RoundedCornerShape(16.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(id = iconResId),
+                contentDescription = null,
+                tint = Color(0xFF64B5F6),
+                modifier = Modifier.size(28.dp),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = SoftText,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
 @Composable
 fun AppLockScreen(
     container: AppContainer,
@@ -645,18 +592,18 @@ private fun LockedAppRow(
     onRemove: () -> Unit,
 ) {
     Card(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = Cyan.copy(alpha = 0.08f)),
         border = BorderStroke(1.dp, Cyan.copy(alpha = 0.18f)),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(32.dp)
                     .clip(CircleShape)
                     .background(Cyan.copy(alpha = 0.18f)),
                 contentAlignment = Alignment.Center,
@@ -665,17 +612,17 @@ private fun LockedAppRow(
                     text = label.firstOrNull()?.uppercase() ?: "#",
                     color = Cyan,
                     fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = label,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                 )
                 Text(
                     text = packageName,
@@ -686,7 +633,7 @@ private fun LockedAppRow(
                 )
             }
             IconButton(onClick = onRemove) {
-                Icon(Icons.Rounded.LockOpen, contentDescription = "Unlock", tint = Cyan, modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.LockOpen, contentDescription = "Unlock", tint = Cyan, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -700,7 +647,7 @@ private fun AppSurface(content: @Composable () -> Unit) {
             .background(MaterialTheme.colorScheme.background)
             .padding(WindowInsets.statusBars.asPaddingValues())
             .padding(WindowInsets.navigationBars.asPaddingValues())
-            .padding(22.dp),
+            .padding(16.dp),
     ) {
         content()
     }
@@ -839,12 +786,12 @@ private fun AppSelectionRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onCheckedChange(!checked) }
-                .padding(vertical = 14.dp),
+                .padding(vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(if (checked) Cyan.copy(alpha = 0.18f) else PanelAlt),
                 contentAlignment = Alignment.Center,
@@ -853,9 +800,10 @@ private fun AppSelectionRow(
                     text = app.label.firstOrNull()?.uppercase() ?: "#",
                     color = if (checked) Cyan else SoftText,
                     fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = app.label,
