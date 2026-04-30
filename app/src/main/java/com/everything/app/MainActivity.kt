@@ -32,6 +32,7 @@ import com.everything.app.feature.applock.ui.BiometricSetupScreen
 import com.everything.app.feature.applock.ui.DashboardScreen
 import com.everything.app.feature.applock.ui.PermissionGrantScreen
 import com.everything.app.feature.applock.ui.SetupCredentialScreen
+import com.everything.app.feature.settings.ui.SettingsScreen
 import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
@@ -59,6 +60,7 @@ class MainActivity : FragmentActivity() {
 private enum class MainRoute {
     Dashboard,
     AppLock,
+    Settings,
 }
 
 @Composable
@@ -154,6 +156,7 @@ private fun EverythingApp(
         route == MainRoute.Dashboard -> DashboardScreen(
             lockedCount = lockedApps.size,
             onOpenAppLock = { route = MainRoute.AppLock },
+            onOpenSettings = { route = MainRoute.Settings },
         )
 
         route == MainRoute.AppLock -> AppLockScreen(
@@ -165,6 +168,11 @@ private fun EverythingApp(
                     AppMonitorService.start(context)
                 }
             },
+        )
+
+        route == MainRoute.Settings -> SettingsScreen(
+            container = container,
+            onBack = { route = MainRoute.Dashboard },
         )
     }
 }

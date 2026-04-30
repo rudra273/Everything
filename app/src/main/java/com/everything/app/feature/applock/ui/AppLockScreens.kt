@@ -43,6 +43,8 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -262,13 +264,16 @@ fun PermissionGrantScreen(
 fun DashboardScreen(
     lockedCount: Int,
     onOpenAppLock: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
     AppSurface {
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            // ── Header row: app icon + title ──
+            // ── Header row: app icon + title + menu ──
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
@@ -285,7 +290,40 @@ fun DashboardScreen(
                     text = "Everything",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
                 )
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(
+                            Icons.Rounded.Settings,
+                            contentDescription = "Settings",
+                            tint = SoftText,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                        containerColor = Panel,
+                        border = BorderStroke(1.dp, Stroke),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Settings") },
+                            onClick = {
+                                menuExpanded = false
+                                onOpenSettings()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Rounded.Settings,
+                                    contentDescription = null,
+                                    tint = MutedText,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            },
+                        )
+                    }
+                }
             }
 
             // ── Section label ──

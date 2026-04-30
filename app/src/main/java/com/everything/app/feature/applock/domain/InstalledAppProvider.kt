@@ -20,7 +20,6 @@ class InstalledAppProvider(
                     label = label.ifBlank { resolveInfo.activityInfo.packageName },
                 )
             }
-            .filter { it.packageName != context.packageName }
             .distinctBy { it.packageName }
             .sortedBy { it.label.lowercase() }
             .toList()

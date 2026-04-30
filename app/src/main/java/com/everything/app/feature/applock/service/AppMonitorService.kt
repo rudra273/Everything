@@ -17,6 +17,7 @@ import com.everything.app.MainActivity
 import com.everything.app.R
 import com.everything.app.core.permissions.AppLockPermissionChecker
 import com.everything.app.core.session.AppLockSessionManager
+import com.everything.app.feature.applock.domain.SettingsPackageResolver
 import com.everything.app.feature.applock.ui.LockActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,12 +32,15 @@ class AppMonitorService : Service() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private lateinit var detector: ForegroundAppDetector
     private lateinit var overlayController: LockOverlayController
+    private lateinit var settingsPackages: Set<String>
     private var lockedPackages = emptySet<String>()
     private var lastForegroundPackage: String? = null
+    private var activeActivityLockPackage: String? = null
 
     override fun onCreate() {
         super.onCreate()
         detector = ForegroundAppDetector(this)
+        settingsPackages = SettingsPackageResolver.resolve(this)
         overlayController = LockOverlayController(
             context = this,
             credentialRepository = (application as EverythingApplication).container.credentialRepository,
@@ -80,7 +84,14 @@ class AppMonitorService : Service() {
                 val foregroundPackage = runCatching { detector.currentForegroundPackage() }.getOrNull()
                 if (foregroundPackage != null && foregroundPackage != lastForegroundPackage) {
                     lastForegroundPackage = foregroundPackage
-                    AppLockSessionManager.keepOnly(foregroundPackage)
+                    if (foregroundPackage == packageName && activeActivityLockPackage != null) {
+                        AppLockSessionManager.clearExpired()
+                    } else {
+                        if (foregroundPackage != packageName) {
+                            activeActivityLockPackage = null
+                        }
+                        AppLockSessionManager.keepOnly(foregroundPackage)
+                    }
                 } else {
                     AppLockSessionManager.clearExpired()
                 }
@@ -104,7 +115,7 @@ class AppMonitorService : Service() {
     }
 
     private fun launchLockScreen(packageName: String) {
-        if (Settings.canDrawOverlays(this)) {
+        if (packageName !in settingsPackages && Settings.canDrawOverlays(this)) {
             mainHandler.post {
                 overlayController.show(
                     packageName = packageName,
@@ -117,6 +128,8 @@ class AppMonitorService : Service() {
     }
 
     private fun launchActivityLockScreen(packageName: String) {
+        if (activeActivityLockPackage == packageName) return
+        activeActivityLockPackage = packageName
         val intent = LockActivity.intent(this, packageName)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         startActivity(intent)
