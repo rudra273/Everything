@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -299,22 +300,24 @@ fun DashboardScreen(
                 }
             }
 
-            // ── Section label ──
-            Text(
-                text = "Security Tools",
-                color = MutedText,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.2.sp,
-            )
-
             // ── Tool grid items ──
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // SECURITY TOOLS
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        text = "Security",
+                        color = MutedText,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.2.sp,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
                 item {
                     ToolGridItem(
                         iconResId = com.everything.app.R.drawable.ic_app_lock,
@@ -326,7 +329,54 @@ fun DashboardScreen(
                     ToolGridItem(
                         iconResId = com.everything.app.R.drawable.ic_key_store,
                         title = "Key Store",
-                        onClick = { /* Placeholder for Key Store */ },
+                        onClick = { /* Placeholder */ },
+                    )
+                }
+                item {
+                    ToolGridItem(
+                        iconResId = com.everything.app.R.drawable.ic_secure_notes,
+                        title = "Notes",
+                        onClick = { /* Placeholder */ },
+                    )
+                }
+                item {
+                    ToolGridItem(
+                        iconResId = com.everything.app.R.drawable.ic_file_vault,
+                        title = "File Vault",
+                        onClick = { /* Placeholder */ },
+                    )
+                }
+
+                // PRODUCTIVITY & TOOLS
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        text = "Productivity",
+                        color = MutedText,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.2.sp,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                    )
+                }
+                item {
+                    ToolGridItem(
+                        iconResId = com.everything.app.R.drawable.ic_todo_tracker,
+                        title = "TODO",
+                        onClick = { /* Placeholder */ },
+                    )
+                }
+                item {
+                    ToolGridItem(
+                        iconResId = com.everything.app.R.drawable.ic_expense_tracker,
+                        title = "Expenses",
+                        onClick = { /* Placeholder */ },
+                    )
+                }
+                item {
+                    ToolGridItem(
+                        iconResId = com.everything.app.R.drawable.ic_notes_editor,
+                        title = "Editor",
+                        onClick = { /* Placeholder */ },
                     )
                 }
             }
