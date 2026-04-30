@@ -8,7 +8,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,11 +26,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,7 +60,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.everything.app.AppContainer
-import com.everything.app.feature.applock.domain.SettingsPackageResolver
 import com.everything.app.core.security.EverythingDeviceAdmin
 import com.everything.app.core.ui.Cyan
 import com.everything.app.core.ui.GradientButton
@@ -71,26 +68,24 @@ import com.everything.app.core.ui.Panel
 import com.everything.app.core.ui.PanelAlt
 import com.everything.app.core.ui.SoftText
 import com.everything.app.core.ui.Stroke
+import com.everything.app.feature.applock.domain.SettingsPackageResolver
 import kotlinx.coroutines.launch
 
 private const val SETTINGS_LABEL = "Settings"
 
-/**
- * Check if this device admin component is currently active.
- */
+private fun deviceAdminComponent(context: Context) =
+    ComponentName(context, EverythingDeviceAdmin::class.java)
+
 private fun isDeviceAdminActive(context: Context): Boolean {
     val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-    return dpm.isAdminActive(ComponentName(context, EverythingDeviceAdmin::class.java))
+    return dpm.isAdminActive(deviceAdminComponent(context))
 }
 
-/**
- * Create an intent to request device admin activation.
- */
 private fun deviceAdminIntent(context: Context): Intent {
     return Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
         putExtra(
             DevicePolicyManager.EXTRA_DEVICE_ADMIN,
-            ComponentName(context, EverythingDeviceAdmin::class.java),
+            deviceAdminComponent(context),
         )
         putExtra(
             DevicePolicyManager.EXTRA_ADD_EXPLANATION,
@@ -99,18 +94,28 @@ private fun deviceAdminIntent(context: Context): Intent {
     }
 }
 
-/**
- * Programmatically deactivate the device admin.
- */
 private fun removeDeviceAdmin(context: Context) {
     val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-    val component = ComponentName(context, EverythingDeviceAdmin::class.java)
+    val component = deviceAdminComponent(context)
     if (dpm.isAdminActive(component)) {
         dpm.removeActiveAdmin(component)
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private suspend fun setSettingsLocked(
+    container: AppContainer,
+    settingsPackages: Iterable<String>,
+    locked: Boolean,
+) {
+    settingsPackages.forEach { packageName ->
+        container.appLockRepository.setLocked(
+            packageName = packageName,
+            label = SETTINGS_LABEL,
+            locked = locked,
+        )
+    }
+}
+
 @Composable
 fun SettingsScreen(
     container: AppContainer,
@@ -128,22 +133,14 @@ fun SettingsScreen(
     var disablePin by remember { mutableStateOf("") }
     var disablePinError by remember { mutableStateOf<String?>(null) }
 
-    // Refresh admin state when returning from system Device Admin screen
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 val wasAdmin = isAdminActive
                 isAdminActive = isDeviceAdminActive(context)
-                // User just activated admin → auto-lock Settings app
                 if (!wasAdmin && isAdminActive) {
                     scope.launch {
-                        settingsPackages.forEach { pkg ->
-                            container.appLockRepository.setLocked(
-                                packageName = pkg,
-                                label = SETTINGS_LABEL,
-                                locked = true,
-                            )
-                        }
+                        setSettingsLocked(container, settingsPackages, locked = true)
                     }
                 }
             }
@@ -163,7 +160,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
                 }
                 Spacer(Modifier.width(4.dp))
                 Text(
@@ -184,7 +181,6 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // ── Section label ──
             Text(
                 text = "Protection",
                 color = MutedText,
@@ -193,7 +189,6 @@ fun SettingsScreen(
                 letterSpacing = 0.8.sp,
             )
 
-            // ── Uninstall Protection card ──
             Card(
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = Panel),
@@ -245,7 +240,6 @@ fun SettingsScreen(
                         )
                     }
 
-                    // ── Inline PIN verification to disable ──
                     if (showDisablePin) {
                         Column(
                             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
@@ -292,15 +286,7 @@ fun SettingsScreen(
                                         scope.launch {
                                             val valid = container.credentialRepository.verify(disablePin.toCharArray())
                                             if (valid) {
-                                                // 1. Unlock all Settings packages
-                                                settingsPackages.forEach { pkg ->
-                                                    container.appLockRepository.setLocked(
-                                                        packageName = pkg,
-                                                        label = SETTINGS_LABEL,
-                                                        locked = false,
-                                                    )
-                                                }
-                                                // 2. Remove device admin
+                                                setSettingsLocked(container, settingsPackages, locked = false)
                                                 removeDeviceAdmin(context)
                                                 isAdminActive = false
                                                 showDisablePin = false
@@ -318,7 +304,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ── Info text ──
             if (isAdminActive) {
                 Text(
                     text = "The Settings app is locked to prevent admin deactivation. " +
