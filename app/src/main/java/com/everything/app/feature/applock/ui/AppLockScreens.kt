@@ -322,6 +322,13 @@ fun DashboardScreen(
                         onClick = onOpenAppLock,
                     )
                 }
+                item {
+                    ToolGridItem(
+                        iconResId = com.everything.app.R.drawable.ic_key_store,
+                        title = "Key Store",
+                        onClick = { /* Placeholder for Key Store */ },
+                    )
+                }
             }
         }
     }
