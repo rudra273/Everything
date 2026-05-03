@@ -41,6 +41,8 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -73,13 +75,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.everything.app.AppContainer
-import com.everything.app.core.data.SecureSettingRepository
 import com.everything.app.core.permissions.AppLockPermissionState
 import com.everything.app.core.permissions.PermissionIntents
 import com.everything.app.core.ui.Cyan
@@ -256,6 +258,7 @@ fun PermissionGrantScreen(
 fun DashboardScreen(
     lockedCount: Int,
     onOpenAppLock: () -> Unit,
+    onOpenKeyStore: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     AppSurface {
@@ -321,7 +324,7 @@ fun DashboardScreen(
                     ToolGridItem(
                         iconResId = com.everything.app.R.drawable.ic_key_store,
                         title = "Key Store",
-                        onClick = { /* Placeholder */ },
+                        onClick = onOpenKeyStore,
                     )
                 }
                 item {
@@ -433,10 +436,6 @@ fun AppLockScreen(
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val lockedPackages = remember(lockedApps) { lockedApps.map { it.packageName }.toSet() }
 
-    val biometricEnabled by container.secureSettingRepository
-        .observeBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED)
-        .collectAsStateWithLifecycle(initialValue = false)
-
     LaunchedEffect(Unit) {
         installedApps = container.installedAppProvider.loadLaunchableApps()
     }
@@ -492,59 +491,6 @@ fun AppLockScreen(
                     .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                // ── Fingerprint toggle ──
-                item {
-                    Card(
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = Panel),
-                        border = BorderStroke(1.dp, Stroke),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                Icons.Rounded.Fingerprint,
-                                contentDescription = null,
-                                tint = if (biometricEnabled == true) Cyan else MutedText,
-                                modifier = Modifier.size(24.dp),
-                            )
-                            Spacer(Modifier.width(14.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Use Fingerprint",
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    text = if (biometricEnabled == true) "Enabled" else "Disabled",
-                                    color = MutedText,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                            Switch(
-                                checked = biometricEnabled == true,
-                                onCheckedChange = { enabled ->
-                                    scope.launch {
-                                        container.secureSettingRepository.putBoolean(
-                                            SecureSettingRepository.KEY_BIOMETRIC_ENABLED,
-                                            enabled,
-                                        )
-                                    }
-                                },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color(0xFF001716),
-                                    checkedTrackColor = Cyan,
-                                    uncheckedThumbColor = SoftText,
-                                    uncheckedTrackColor = PanelAlt,
-                                    uncheckedBorderColor = Stroke,
-                                ),
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                }
-
                 // ── Locked Apps section ──
                 if (lockedApps.isNotEmpty()) {
                     item {
@@ -744,13 +690,24 @@ private fun SecureTextField(
     onValueChange: (String) -> Unit,
     label: String,
 ) {
+    var visible by remember { mutableStateOf(false) }
+
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         label = { Text(label) },
-        visualTransformation = PasswordVisualTransformation(),
+        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = {
+            IconButton(onClick = { visible = !visible }) {
+                Icon(
+                    if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                    contentDescription = if (visible) "Hide" else "Show",
+                    tint = SoftText,
+                )
+            }
+        },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
         shape = RoundedCornerShape(8.dp),
         colors = OutlinedTextFieldDefaults.colors(

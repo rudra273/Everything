@@ -53,6 +53,29 @@ class AppLockRepository(
         )
     }
 
+    suspend fun exportRecords(): List<AppLockBackupRecord> {
+        return dao.getAll().mapNotNull { entity ->
+            entity.toDomainOrNull()?.let { app ->
+                AppLockBackupRecord(
+                    packageName = app.packageName,
+                    label = app.label,
+                    enabled = app.enabled,
+                    updatedAtMillis = entity.updatedAtMillis,
+                )
+            }
+        }
+    }
+
+    suspend fun importRecords(records: List<AppLockBackupRecord>) {
+        records.forEach { record ->
+            setLocked(
+                packageName = record.packageName,
+                label = record.label,
+                locked = record.enabled,
+            )
+        }
+    }
+
     private fun LockedAppEntity.toDomainOrNull(): LockedApp? {
         return runCatching {
             LockedApp(
@@ -75,3 +98,10 @@ class AppLockRepository(
         const val AAD_LABEL = "app_lock.label"
     }
 }
+
+data class AppLockBackupRecord(
+    val packageName: String,
+    val label: String,
+    val enabled: Boolean,
+    val updatedAtMillis: Long,
+)

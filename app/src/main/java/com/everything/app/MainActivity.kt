@@ -34,6 +34,7 @@ import com.everything.app.feature.applock.ui.BiometricSetupScreen
 import com.everything.app.feature.applock.ui.DashboardScreen
 import com.everything.app.feature.applock.ui.PermissionGrantScreen
 import com.everything.app.feature.applock.ui.SetupCredentialScreen
+import com.everything.app.feature.keystore.ui.KeyStoreScreen
 import com.everything.app.feature.settings.ui.SettingsScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.catch
@@ -65,6 +66,7 @@ class MainActivity : FragmentActivity() {
 private enum class MainRoute {
     Dashboard,
     AppLock,
+    KeyStore,
     Settings,
 }
 
@@ -131,8 +133,12 @@ private fun EverythingApp(
     when {
         !credentialReady -> SetupCredentialScreen(
             onCredentialReady = { pin ->
-                container.credentialRepository.saveCredential(pin.toCharArray())
-                credentialReady = true
+                scope.launch {
+                    withContext(Dispatchers.Default) {
+                        container.credentialRepository.saveCredential(pin.toCharArray())
+                    }
+                    credentialReady = true
+                }
             },
         )
 
@@ -174,6 +180,7 @@ private fun EverythingApp(
         route == MainRoute.Dashboard -> DashboardScreen(
             lockedCount = lockedApps.size,
             onOpenAppLock = { route = MainRoute.AppLock },
+            onOpenKeyStore = { route = MainRoute.KeyStore },
             onOpenSettings = { route = MainRoute.Settings },
         )
 
@@ -186,6 +193,11 @@ private fun EverythingApp(
                     AppMonitorService.start(context)
                 }
             },
+        )
+
+        route == MainRoute.KeyStore -> KeyStoreScreen(
+            container = container,
+            onBack = { route = MainRoute.Dashboard },
         )
 
         route == MainRoute.Settings -> SettingsScreen(

@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.appcompat)
+    implementation(libs.argon2kt)
     implementation(libs.material)
     implementation(libs.sqlcipher)
     ksp(libs.androidx.room.compiler)
