@@ -7,6 +7,9 @@ import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +18,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -25,6 +30,7 @@ import com.everything.app.core.data.SecureSettingRepository
 import com.everything.app.core.permissions.AppLockPermissionChecker
 import com.everything.app.core.permissions.AppLockPermissionState
 import com.everything.app.core.security.BiometricAuthenticator
+import com.everything.app.core.ui.Cyan
 import com.everything.app.core.ui.EverythingTheme
 import com.everything.app.feature.applock.service.AppMonitorService
 import com.everything.app.feature.applock.ui.AppLockScreen
@@ -33,6 +39,7 @@ import com.everything.app.feature.applock.ui.DashboardScreen
 import com.everything.app.feature.applock.ui.PermissionGrantScreen
 import com.everything.app.feature.applock.ui.SetupCredentialScreen
 import com.everything.app.feature.settings.ui.SettingsScreen
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
@@ -77,10 +84,9 @@ private fun EverythingApp(
     var route by remember { mutableStateOf(MainRoute.Dashboard) }
     var permissions by remember { mutableStateOf(AppLockPermissionChecker.check(context)) }
     var biometricMessage by remember { mutableStateOf<String?>(null) }
+    var biometricPreferenceLoaded by remember { mutableStateOf(false) }
+    var biometricEnabled by remember { mutableStateOf<Boolean?>(null) }
 
-    val biometricEnabled by container.secureSettingRepository
-        .observeBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED)
-        .collectAsStateWithLifecycle(initialValue = null)
     val lockedApps by container.appLockRepository
         .observeLockedApps()
         .collectAsStateWithLifecycle(initialValue = emptyList())
@@ -101,6 +107,19 @@ private fun EverythingApp(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    LaunchedEffect(Unit) {
+        container.secureSettingRepository
+            .observeBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED)
+            .catch {
+                biometricEnabled = false
+                biometricPreferenceLoaded = true
+            }
+            .collect { enabled ->
+                biometricEnabled = enabled
+                biometricPreferenceLoaded = true
+            }
+    }
+
     LaunchedEffect(permissions.allGranted, credentialReady, lockedApps.size) {
         if (permissions.allGranted && credentialReady) {
             AppMonitorService.start(context)
@@ -114,6 +133,8 @@ private fun EverythingApp(
                 credentialReady = true
             },
         )
+
+        !biometricPreferenceLoaded -> StartupLoadingScreen()
 
         biometricEnabled == null -> BiometricSetupScreen(
             canUseBiometric = biometricAuthenticator.canAuthenticate(),
@@ -174,5 +195,15 @@ private fun EverythingApp(
             container = container,
             onBack = { route = MainRoute.Dashboard },
         )
+    }
+}
+
+@Composable
+private fun StartupLoadingScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(color = Cyan)
     }
 }
