@@ -66,6 +66,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -86,11 +87,11 @@ import com.everything.app.core.permissions.AppLockPermissionState
 import com.everything.app.core.permissions.PermissionIntents
 import com.everything.app.core.ui.Cyan
 import com.everything.app.core.ui.FullWidthDivider
-import com.everything.app.core.ui.GradientButton
+import com.everything.app.core.ui.PrimaryButton
 import com.everything.app.core.ui.MutedText
 import com.everything.app.core.ui.Panel
 import com.everything.app.core.ui.PanelAlt
-import com.everything.app.core.ui.QuietButton
+import com.everything.app.core.ui.SecondaryButton
 import com.everything.app.core.ui.SoftText
 import com.everything.app.core.ui.Stroke
 import com.everything.app.core.ui.Teal
@@ -136,7 +137,7 @@ fun SetupCredentialScreen(
                 }
             }
 
-            GradientButton(
+            PrimaryButton(
                 text = "Continue",
                 enabled = canContinue,
                 modifier = Modifier.fillMaxWidth(),
@@ -180,7 +181,7 @@ fun BiometricSetupScreen(
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (canUseBiometric) {
-                    GradientButton(
+                    PrimaryButton(
                         text = "Enable",
                         modifier = Modifier.fillMaxWidth(),
                         leadingIcon = {
@@ -190,7 +191,7 @@ fun BiometricSetupScreen(
                         onClick = onEnable,
                     )
                 }
-                QuietButton(
+                SecondaryButton(
                     text = if (canUseBiometric) "Skip" else "Continue",
                     modifier = Modifier.fillMaxWidth(),
                     onClick = onSkip,
@@ -241,7 +242,7 @@ fun PermissionGrantScreen(
                 )
             }
 
-            GradientButton(
+            PrimaryButton(
                 text = "Check",
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = {
@@ -261,6 +262,7 @@ fun DashboardScreen(
     onOpenKeyStore: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    var searchQuery by remember { mutableStateOf("") }
     AppSurface {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -294,6 +296,25 @@ fun DashboardScreen(
                     )
                 }
             }
+
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search tools...", style = MaterialTheme.typography.bodySmall) },
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MutedText, modifier = Modifier.size(18.dp)) },
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Cyan,
+                    unfocusedBorderColor = Stroke,
+                    focusedTextColor = SoftText,
+                    unfocusedTextColor = SoftText,
+                    cursorColor = Cyan,
+                    focusedContainerColor = PanelAlt,
+                    unfocusedContainerColor = PanelAlt,
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
 
             // ── Tool grid items ──
             LazyVerticalGrid(
@@ -593,7 +614,7 @@ private fun LockedAppRow(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -618,13 +639,6 @@ private fun LockedAppRow(
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.bodySmall,
-                )
-                Text(
-                    text = packageName,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MutedText,
-                    style = MaterialTheme.typography.labelSmall,
                 )
             }
             IconButton(onClick = onRemove) {
@@ -792,7 +806,7 @@ private fun AppSelectionRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onCheckedChange(!checked) }
-                .padding(vertical = 10.dp),
+                .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -817,15 +831,9 @@ private fun AppSelectionRow(
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Text(
-                    text = app.packageName,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MutedText,
-                    style = MaterialTheme.typography.bodySmall,
-                )
             }
             Switch(
+                modifier = Modifier.scale(0.85f),
                 checked = checked,
                 onCheckedChange = onCheckedChange,
                 colors = SwitchDefaults.colors(

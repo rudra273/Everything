@@ -2,6 +2,7 @@ package com.everything.app.feature.keystore.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,9 +20,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
@@ -83,6 +89,8 @@ import com.everything.app.core.ui.Stroke
 import com.everything.app.core.ui.Teal
 import com.everything.app.core.ui.Amber
 import com.everything.app.core.ui.AmberMuted
+import com.everything.app.core.ui.PrimaryButton
+import com.everything.app.core.ui.SecondaryButton
 import com.everything.app.feature.keystore.data.KeyStoreEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -104,11 +112,10 @@ fun KeyStoreScreen(
     container: AppContainer,
     onBack: () -> Unit,
 ) {
-    BackHandler { onBack() }
-
     val context = LocalContext.current
     val activity = context as FragmentActivity
     val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
     val biometricAuthenticator = remember(activity) { BiometricAuthenticator(activity) }
     var unlocked by remember { mutableStateOf(false) }
     var unlockPin by remember { mutableStateOf("") }
@@ -122,12 +129,29 @@ fun KeyStoreScreen(
     var confirmDeleteEntry by remember { mutableStateOf<KeyStoreEntry?>(null) }
     var visibleEntries by remember { mutableStateOf(emptySet<String>()) }
     var query by remember { mutableStateOf("") }
-    val filteredEntries = remember(entries, query) {
+    var selectedLabel by remember { mutableStateOf<String?>(null) }
+    var isSearchFocused by remember { mutableStateOf(false) }
+
+    BackHandler {
+        if (isSearchFocused) {
+            focusManager.clearFocus()
+        } else if (editorState != null) {
+            editorState = null
+        } else if (query.isNotEmpty() || selectedLabel != null) {
+            query = ""
+            selectedLabel = null
+        } else {
+            onBack()
+        }
+    }
+
+    val filteredEntries = remember(entries, query, selectedLabel) {
         entries.orEmpty().filter { entry ->
-            query.isBlank() ||
+            val matchesQuery = query.isBlank() ||
                 entry.name.contains(query, ignoreCase = true) ||
-                entry.label.contains(query, ignoreCase = true) ||
-                entry.value.contains(query, ignoreCase = true)
+                entry.label.contains(query, ignoreCase = true)
+            val matchesLabel = selectedLabel == null || entry.label == selectedLabel
+            matchesQuery && matchesLabel
         }
     }
 
@@ -226,11 +250,13 @@ fun KeyStoreScreen(
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            placeholder = { Text("Search name, label, or value", style = MaterialTheme.typography.bodySmall) },
+            placeholder = { Text("Search name or label", style = MaterialTheme.typography.bodySmall) },
             leadingIcon = {
                 Icon(Icons.Rounded.Search, contentDescription = null, tint = MutedText, modifier = Modifier.size(18.dp))
             },
             singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Amber,
                 unfocusedBorderColor = Stroke,
@@ -241,8 +267,38 @@ fun KeyStoreScreen(
                 unfocusedContainerColor = PanelAlt,
             ),
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().onFocusChanged { isSearchFocused = it.isFocused }
         )
+
+        val uniqueLabels = remember(entries) {
+            entries.orEmpty().map { it.label }.filter { it.isNotBlank() }.toSet().toList().sorted()
+        }
+
+        if (uniqueLabels.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(uniqueLabels) { lbl ->
+                    val isSelected = selectedLabel == lbl
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSelected) Amber else PanelAlt)
+                            .clickable { selectedLabel = if (isSelected) null else lbl }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = lbl,
+                            color = if (isSelected) Color(0xFF001716) else SoftText,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
 
         when (val currentEntries = entries) {
             null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -391,17 +447,23 @@ private fun KeyStoreUnlockScreen(
                 error?.let {
                     Text(it, color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
                 }
-                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     if (biometricEnabled) {
-                        TextButton(onClick = onBiometric) {
-                            Icon(Icons.Rounded.Fingerprint, contentDescription = null, tint = Cyan, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Fingerprint", color = Cyan)
-                        }
+                        SecondaryButton(
+                            text = "Fingerprint",
+                            leadingIcon = {
+                                Icon(Icons.Rounded.Fingerprint, contentDescription = null, tint = Cyan, modifier = Modifier.size(16.dp))
+                            },
+                            modifier = Modifier.weight(1f),
+                            onClick = onBiometric
+                        )
                     }
-                    TextButton(enabled = pin.length >= 4, onClick = onUnlock) {
-                        Text("Unlock", color = if (pin.length >= 4) Amber else MutedText, fontWeight = FontWeight.Bold)
-                    }
+                    PrimaryButton(
+                        text = "Unlock",
+                        enabled = pin.length >= 4,
+                        modifier = Modifier.weight(if (biometricEnabled) 1f else 1f),
+                        onClick = onUnlock
+                    )
                 }
             }
         }
@@ -445,13 +507,9 @@ private fun AddKeyCard(
             if (confirmValue.isNotEmpty() && value != confirmValue) {
                 Text("Values do not match", color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
             }
-            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = onCancel) {
-                    Text("Cancel", color = MutedText)
-                }
-                TextButton(enabled = canSave, onClick = { onSave(name, label, value) }) {
-                    Text("Save", color = if (canSave) Amber else MutedText, fontWeight = FontWeight.Bold)
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                SecondaryButton(text = "Cancel", modifier = Modifier.weight(1f), onClick = onCancel)
+                PrimaryButton(text = "Save", enabled = canSave, modifier = Modifier.weight(1f), onClick = { onSave(name, label, value) })
             }
         }
     }
@@ -481,16 +539,6 @@ private fun KeyEntryRow(
             modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(AmberMuted),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Rounded.Key, contentDescription = null, tint = Amber, modifier = Modifier.size(16.dp))
-            }
-            Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -518,11 +566,6 @@ private fun KeyEntryRow(
                         }
                     }
                     Spacer(Modifier.weight(1f))
-                    Text(
-                        text = "v${entry.version}",
-                        color = MutedText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                    )
                 }
                 Spacer(Modifier.height(2.dp))
                 Text(

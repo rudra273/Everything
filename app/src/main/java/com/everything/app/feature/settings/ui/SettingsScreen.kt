@@ -44,6 +44,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -59,6 +61,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -78,7 +81,8 @@ import com.everything.app.core.data.SecureSettingRepository
 import com.everything.app.core.security.BiometricAuthenticator
 import com.everything.app.core.security.EverythingDeviceAdmin
 import com.everything.app.core.ui.Cyan
-import com.everything.app.core.ui.GradientButton
+import com.everything.app.core.ui.PrimaryButton
+import com.everything.app.core.ui.SecondaryButton
 import com.everything.app.core.ui.MutedText
 import com.everything.app.core.ui.Panel
 import com.everything.app.core.ui.PanelAlt
@@ -283,43 +287,61 @@ fun SettingsScreen(
                 border = BorderStroke(1.dp, Stroke),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                 ) {
-                    Icon(
-                        Icons.Rounded.Palette,
-                        contentDescription = null,
-                        tint = Cyan,
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "App Theme",
-                            fontWeight = FontWeight.SemiBold,
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.Palette,
+                            contentDescription = null,
+                            tint = Cyan,
+                            modifier = Modifier.size(24.dp),
                         )
-                        Text(
-                            text = if (currentTheme == AppTheme.SKY_BLUE.name) "Sky Blue" else "Zinc Rose",
-                            color = MutedText,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                        Spacer(Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "App Theme",
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = if (currentTheme == AppTheme.SKY_BLUE.name) "Sky Blue" else "Zinc Rose",
+                                color = MutedText,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
-                    Switch(
-                        checked = currentTheme == AppTheme.ZINC_ROSE.name,
-                        onCheckedChange = { isZincRose ->
-                            val newTheme = if (isZincRose) AppTheme.ZINC_ROSE.name else AppTheme.SKY_BLUE.name
-                            sharedPrefs.edit().putString("app_theme", newTheme).apply()
-                            currentTheme = newTheme
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(0xFF001716),
-                            checkedTrackColor = Cyan,
-                            uncheckedThumbColor = SoftText,
-                            uncheckedTrackColor = PanelAlt,
-                            uncheckedBorderColor = Stroke,
-                        ),
-                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                sharedPrefs.edit().putString("app_theme", AppTheme.SKY_BLUE.name).apply()
+                                currentTheme = AppTheme.SKY_BLUE.name
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentTheme == AppTheme.SKY_BLUE.name) Cyan else PanelAlt,
+                                contentColor = if (currentTheme == AppTheme.SKY_BLUE.name) Color(0xFF001716) else SoftText
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Sky Blue")
+                        }
+                        Button(
+                            onClick = {
+                                sharedPrefs.edit().putString("app_theme", AppTheme.ZINC_ROSE.name).apply()
+                                currentTheme = AppTheme.ZINC_ROSE.name
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentTheme == AppTheme.ZINC_ROSE.name) Cyan else PanelAlt,
+                                contentColor = if (currentTheme == AppTheme.ZINC_ROSE.name) Color(0xFF001716) else SoftText
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Zinc Rose")
+                        }
+                    }
                 }
             }
 
@@ -338,7 +360,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -367,6 +389,7 @@ fun SettingsScreen(
                         }
                     }
                     Switch(
+                        modifier = Modifier.scale(0.85f),
                         checked = biometricEnabled == true,
                         onCheckedChange = { enable ->
                             biometricMessage = null
@@ -416,7 +439,7 @@ fun SettingsScreen(
             ) {
                 Column {
                     Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
@@ -439,6 +462,7 @@ fun SettingsScreen(
                             )
                         }
                         Switch(
+                            modifier = Modifier.scale(0.85f),
                             checked = isAdminActive,
                             onCheckedChange = { enable ->
                                 if (enable) {
@@ -501,13 +525,14 @@ fun SettingsScreen(
                                 Text(text = it, color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(onClick = {
-                                    showDisablePin = false
-                                    disablePin = ""
-                                }) {
-                                    Text("Cancel", color = MutedText)
-                                }
-                                GradientButton(
+                                SecondaryButton(
+                                    text = "Cancel",
+                                    onClick = {
+                                        showDisablePin = false
+                                        disablePin = ""
+                                    }
+                                )
+                                PrimaryButton(
                                     text = "Confirm",
                                     enabled = disablePin.length >= 4,
                                     onClick = {
@@ -574,7 +599,7 @@ fun SettingsScreen(
                     )
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GradientButton(
+                        PrimaryButton(
                             text = "Export",
                             modifier = Modifier.weight(1f),
                             leadingIcon = {
@@ -588,7 +613,7 @@ fun SettingsScreen(
                                 backupMessage = null
                             },
                         )
-                        GradientButton(
+                        PrimaryButton(
                             text = "Import",
                             modifier = Modifier.weight(1f),
                             leadingIcon = {
@@ -695,10 +720,8 @@ private fun BackupPasswordForm(
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = onCancel) {
-                Text("Cancel", color = MutedText)
-            }
-            GradientButton(
+            SecondaryButton(text = "Cancel", onClick = onCancel)
+            PrimaryButton(
                 text = "Continue",
                 enabled = canContinue,
                 onClick = onContinue,

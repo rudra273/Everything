@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 enum class AppTheme {
@@ -99,7 +100,7 @@ fun EverythingTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun GradientButton(
+fun PrimaryButton(
     text: String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
@@ -109,43 +110,45 @@ fun GradientButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier
-            .height(44.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(Brush.horizontalGradient(listOf(Teal, Cyan))),
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Transparent,
-            disabledContainerColor = Stroke,
+            containerColor = Cyan,
+            disabledContainerColor = PanelAlt,
             contentColor = Color(0xFF001716),
             disabledContentColor = MutedText,
         ),
-        contentPadding = PaddingValues(horizontal = 18.dp),
+        contentPadding = PaddingValues(horizontal = 24.dp),
     ) {
         leadingIcon?.invoke()
-        Text(text = text)
+        Text(text = text, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
 @Composable
-fun QuietButton(
+fun SecondaryButton(
     text: String,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     leadingIcon: @Composable (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(40.dp),
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, Stroke),
+        enabled = enabled,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, if (enabled) Stroke else Stroke.copy(alpha = 0.5f)),
         colors = ButtonDefaults.buttonColors(
-            containerColor = PanelAlt,
-            contentColor = SoftText,
+            containerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent,
+            contentColor = Cyan,
+            disabledContentColor = MutedText,
         ),
-        contentPadding = PaddingValues(horizontal = 16.dp),
+        contentPadding = PaddingValues(horizontal = 24.dp),
     ) {
         leadingIcon?.invoke()
-        Text(text = text)
+        Text(text = text, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
