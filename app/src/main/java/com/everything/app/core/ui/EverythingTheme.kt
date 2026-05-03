@@ -20,7 +20,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-// ── Palette (derived from app icon: deep navy + teal/cyan) ──
+// ── Palette (derived from app icon: deep navy + teal/cyan + amber) ──
 val DeepBackground = Color(0xFF060B18)
 val Panel = Color(0xFF0E1528)
 val PanelAlt = Color(0xFF131D38)
@@ -32,6 +32,13 @@ val CardGlow = Color(0xFF0CFCE5) // bright highlight for subtle glow effects
 val SoftText = Color(0xFFC8D1E8)
 val MutedText = Color(0xFF7D88A8)
 val Stroke = Color(0xFF1E2D4A)
+
+// ── Third accent: Amber / Gold ──
+val Amber = Color(0xFFF5A623)
+val AmberDark = Color(0xFFD4901E)
+val AmberMuted = Color(0x33F5A623) // 20% amber for subtle tints
+val DangerRed = Color(0xFFFF6B6B)
+val DangerRedMuted = Color(0x33FF6B6B)
 
 private val EverythingColors = darkColorScheme(
     primary = Indigo,

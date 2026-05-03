@@ -68,6 +68,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.fragment.app.FragmentActivity
 import com.everything.app.AppContainer
@@ -80,6 +81,8 @@ import com.everything.app.core.ui.PanelAlt
 import com.everything.app.core.ui.SoftText
 import com.everything.app.core.ui.Stroke
 import com.everything.app.core.ui.Teal
+import com.everything.app.core.ui.Amber
+import com.everything.app.core.ui.AmberMuted
 import com.everything.app.feature.keystore.data.KeyStoreEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -196,10 +199,15 @@ fun KeyStoreScreen(
             Spacer(Modifier.width(4.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("Key Store", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("${filteredEntries.size} of ${entries?.size ?: 0} saved", color = MutedText, style = MaterialTheme.typography.bodySmall)
+                Text("${filteredEntries.size} of ${entries?.size ?: 0} saved", color = Amber, style = MaterialTheme.typography.bodySmall)
             }
-            IconButton(onClick = { editorState = if (editorState is KeyEditorState.Add) null else KeyEditorState.Add }) {
-                Icon(if (editorState is KeyEditorState.Add) Icons.Rounded.Close else Icons.Rounded.Add, contentDescription = "Add", tint = Cyan)
+            IconButton(
+                onClick = { editorState = if (editorState is KeyEditorState.Add) null else KeyEditorState.Add },
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (editorState is KeyEditorState.Add) PanelAlt else AmberMuted)
+            ) {
+                Icon(if (editorState is KeyEditorState.Add) Icons.Rounded.Close else Icons.Rounded.Add, contentDescription = "Add", tint = if (editorState is KeyEditorState.Add) SoftText else Amber)
             }
         }
 
@@ -215,13 +223,25 @@ fun KeyStoreScreen(
             )
         }
 
-        SecureTextField(
+        OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            label = "Search name, label, or value",
+            placeholder = { Text("Search name, label, or value", style = MaterialTheme.typography.bodySmall) },
             leadingIcon = {
                 Icon(Icons.Rounded.Search, contentDescription = null, tint = MutedText, modifier = Modifier.size(18.dp))
             },
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Amber,
+                unfocusedBorderColor = Stroke,
+                focusedTextColor = SoftText,
+                unfocusedTextColor = SoftText,
+                cursorColor = Amber,
+                focusedContainerColor = PanelAlt,
+                unfocusedContainerColor = PanelAlt,
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
         )
 
         when (val currentEntries = entries) {
@@ -335,37 +355,37 @@ private fun KeyStoreUnlockScreen(
             Spacer(Modifier.width(4.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("Key Store", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Unlock secure storage", color = MutedText, style = MaterialTheme.typography.bodySmall)
+                Text("Unlock secure storage", color = Amber, style = MaterialTheme.typography.bodySmall)
             }
         }
 
         Card(
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = Panel),
             border = androidx.compose.foundation.BorderStroke(1.dp, Stroke),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Brush.linearGradient(listOf(Teal, Cyan))),
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(AmberMuted),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Rounded.Lock, contentDescription = null, tint = Color(0xFF001716), modifier = Modifier.size(22.dp))
+                        Icon(Icons.Rounded.Lock, contentDescription = null, tint = Amber, modifier = Modifier.size(20.dp))
                     }
                     Spacer(Modifier.width(12.dp))
-                    Text("Enter master PIN", fontWeight = FontWeight.SemiBold)
+                    Text("Master PIN", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
                 }
                 SecureTextField(
                     value = pin,
                     onValueChange = onPinChange,
-                    label = "Master PIN",
+                    label = "Enter PIN",
                     secure = true,
                 )
                 error?.let {
@@ -374,13 +394,13 @@ private fun KeyStoreUnlockScreen(
                 Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                     if (biometricEnabled) {
                         TextButton(onClick = onBiometric) {
-                            Icon(Icons.Rounded.Fingerprint, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Rounded.Fingerprint, contentDescription = null, tint = Cyan, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Fingerprint")
+                            Text("Fingerprint", color = Cyan)
                         }
                     }
                     TextButton(enabled = pin.length >= 4, onClick = onUnlock) {
-                        Text("Unlock")
+                        Text("Unlock", color = if (pin.length >= 4) Amber else MutedText, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -406,30 +426,31 @@ private fun AddKeyCard(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = "Add Key",
-                fontWeight = FontWeight.SemiBold,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Add, contentDescription = null, tint = Amber, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Add New Key",
+                    fontWeight = FontWeight.SemiBold,
+                    color = Amber
+                )
+            }
             SecureTextField(value = name, onValueChange = { name = it }, label = "Key name")
             SecureTextField(value = value, onValueChange = { value = it }, label = "Value", secure = true)
             SecureTextField(value = confirmValue, onValueChange = { confirmValue = it }, label = "Confirm value", secure = true)
-            SecureTextField(value = label, onValueChange = { label = it }, label = "Label")
+            SecureTextField(value = label, onValueChange = { label = it }, label = "Label (Optional)")
             if (confirmValue.isNotEmpty() && value != confirmValue) {
                 Text("Values do not match", color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
             }
             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                 TextButton(onClick = onCancel) {
-                    Icon(Icons.Rounded.Close, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Cancel")
+                    Text("Cancel", color = MutedText)
                 }
                 TextButton(enabled = canSave, onClick = { onSave(name, label, value) }) {
-                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Save")
+                    Text("Save", color = if (canSave) Amber else MutedText, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -446,7 +467,7 @@ private fun KeyEntryRow(
     val clipboard = LocalClipboardManager.current
 
     Card(
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(6.dp),
         colors = CardDefaults.cardColors(containerColor = Panel),
         border = androidx.compose.foundation.BorderStroke(1.dp, Stroke),
         modifier = Modifier
@@ -457,56 +478,85 @@ private fun KeyEntryRow(
             ),
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Brush.linearGradient(listOf(Teal, Cyan))),
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AmberMuted),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Rounded.Key, contentDescription = null, tint = Color(0xFF001716), modifier = Modifier.size(22.dp))
+                Icon(Icons.Rounded.Key, contentDescription = null, tint = Amber, modifier = Modifier.size(16.dp))
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(entry.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (entry.label.isNotBlank()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = entry.label,
-                        color = Cyan,
+                        entry.name,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    if (entry.label.isNotBlank()) {
+                        Spacer(Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Cyan.copy(alpha = 0.1f))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = entry.label,
+                                color = Cyan,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = "v${entry.version}",
+                        color = MutedText,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                     )
                 }
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    text = if (visible) entry.value else "Hidden",
+                    text = if (visible) entry.value else "••••••••••••••••",
                     color = if (visible) SoftText else MutedText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodySmall,
                 )
-                Text(
-                    text = "v${entry.version}",
-                    color = MutedText,
-                    style = MaterialTheme.typography.labelSmall,
-                )
             }
-            IconButton(onClick = onToggleVisible) {
-                Icon(
-                    if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                    contentDescription = "Toggle visibility",
-                    tint = SoftText,
-                )
-            }
-            IconButton(onClick = { clipboard.setText(AnnotatedString(entry.value)) }) {
-                Icon(
-                    Icons.Rounded.ContentCopy,
-                    contentDescription = "Copy value",
-                    tint = SoftText,
-                )
+            Spacer(Modifier.width(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                IconButton(
+                    onClick = onToggleVisible,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                        contentDescription = "Toggle visibility",
+                        tint = if (visible) Cyan else MutedText,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                IconButton(
+                    onClick = { clipboard.setText(AnnotatedString(entry.value)) },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.ContentCopy,
+                        contentDescription = "Copy value",
+                        tint = SoftText,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }
@@ -521,27 +571,23 @@ private fun KeyActionsDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        title = { Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Choose an action", color = MutedText)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Choose an action", color = MutedText, style = MaterialTheme.typography.bodyMedium)
                 if (entry.label.isNotBlank()) {
-                    Text(entry.label, color = Cyan, style = MaterialTheme.typography.bodySmall)
+                    Text(entry.label, color = Amber, style = MaterialTheme.typography.labelSmall)
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onUpdate) {
-                Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Update")
+                Text("Update", color = Amber, fontWeight = FontWeight.SemiBold)
             }
         },
         dismissButton = {
-            Row {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onDelete) {
-                    Icon(Icons.Rounded.Delete, contentDescription = null, tint = Color(0xFFFFA8A8), modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
                     Text("Delete", color = Color(0xFFFFA8A8))
                 }
                 TextButton(onClick = onDismiss) {
@@ -549,9 +595,10 @@ private fun KeyActionsDialog(
                 }
             }
         },
-        containerColor = Panel,
+        containerColor = PanelAlt,
         titleContentColor = SoftText,
         textContentColor = SoftText,
+        shape = RoundedCornerShape(12.dp)
     )
 }
 
@@ -563,11 +610,11 @@ private fun ConfirmDeleteDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete key?") },
-        text = { Text("This will remove ${entry.name}.", color = MutedText) },
+        title = { Text("Delete Key", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+        text = { Text("Are you sure you want to remove '${entry.name}'?", color = MutedText, style = MaterialTheme.typography.bodyMedium) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Delete", color = Color(0xFFFFA8A8))
+                Text("Delete", color = Color(0xFFFFA8A8), fontWeight = FontWeight.SemiBold)
             }
         },
         dismissButton = {
@@ -575,9 +622,10 @@ private fun ConfirmDeleteDialog(
                 Text("Cancel", color = MutedText)
             }
         },
-        containerColor = Panel,
+        containerColor = PanelAlt,
         titleContentColor = SoftText,
         textContentColor = SoftText,
+        shape = RoundedCornerShape(12.dp)
     )
 }
 
@@ -595,15 +643,15 @@ private fun UpdateKeyDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Update Key") },
+        title = { Text("Update Key", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SecureTextField(value = name, onValueChange = { name = it }, label = "Key name")
                 SecureTextField(value = value, onValueChange = { value = it }, label = "Value", secure = true)
                 SecureTextField(value = confirmValue, onValueChange = { confirmValue = it }, label = "Confirm value", secure = true)
-                SecureTextField(value = label, onValueChange = { label = it }, label = "Label")
+                SecureTextField(value = label, onValueChange = { label = it }, label = "Label (Optional)")
                 if (confirmValue.isNotEmpty() && value != confirmValue) {
-                    Text("Values do not match", color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
+                    Text("Values do not match", color = Color(0xFFFFA8A8), style = MaterialTheme.typography.labelSmall)
                 }
             }
         },
@@ -620,7 +668,7 @@ private fun UpdateKeyDialog(
                     )
                 },
             ) {
-                Text("Update")
+                Text("Update", color = if (canSave) Amber else MutedText, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -628,9 +676,10 @@ private fun UpdateKeyDialog(
                 Text("Cancel", color = MutedText)
             }
         },
-        containerColor = Panel,
+        containerColor = PanelAlt,
         titleContentColor = SoftText,
         textContentColor = SoftText,
+        shape = RoundedCornerShape(12.dp)
     )
 }
 
@@ -647,17 +696,18 @@ private fun SecureTextField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { Text(label, style = MaterialTheme.typography.bodySmall) },
         leadingIcon = leadingIcon,
         singleLine = !secure,
         visualTransformation = if (secure && !visible) PasswordVisualTransformation() else VisualTransformation.None,
         trailingIcon = if (secure) {
             {
-                IconButton(onClick = { visible = !visible }) {
+                IconButton(onClick = { visible = !visible }, modifier = Modifier.size(24.dp)) {
                     Icon(
                         if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
                         contentDescription = if (visible) "Hide" else "Show",
-                        tint = SoftText,
+                        tint = MutedText,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
@@ -666,11 +716,11 @@ private fun SecureTextField(
         },
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Cyan,
+            focusedBorderColor = Amber,
             unfocusedBorderColor = Stroke,
-            focusedLabelColor = Cyan,
+            focusedLabelColor = Amber,
             unfocusedLabelColor = MutedText,
-            cursorColor = Cyan,
+            cursorColor = Amber,
             focusedTextColor = SoftText,
             unfocusedTextColor = SoftText,
         ),
