@@ -260,6 +260,7 @@ fun DashboardScreen(
     lockedCount: Int,
     onOpenAppLock: () -> Unit,
     onOpenKeyStore: () -> Unit,
+    onOpenExpenses: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -385,7 +386,7 @@ fun DashboardScreen(
                     ToolGridItem(
                         iconResId = com.everything.app.R.drawable.ic_expense_tracker,
                         title = "Expenses",
-                        onClick = { /* Placeholder */ },
+                        onClick = onOpenExpenses,
                     )
                 }
                 item {

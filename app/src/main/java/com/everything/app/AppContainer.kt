@@ -13,6 +13,8 @@ import com.everything.app.core.security.SensitiveValueCipher
 import com.everything.app.feature.applock.data.AppLockBackupContributor
 import com.everything.app.feature.applock.data.AppLockRepository
 import com.everything.app.feature.applock.domain.InstalledAppProvider
+import com.everything.app.feature.expense.data.ExpenseBackupContributor
+import com.everything.app.feature.expense.data.ExpenseRepository
 import com.everything.app.feature.keystore.data.KeyStoreBackupContributor
 import com.everything.app.feature.keystore.data.KeyStoreRepository
 
@@ -39,12 +41,17 @@ class AppContainer(context: Context) {
         KeyStoreRepository(database.keyStoreEntryDao(), sensitiveValueCipher)
     }
 
+    val expenseRepository: ExpenseRepository by lazy {
+        ExpenseRepository(database.expenseDao())
+    }
+
     val backupService: EverythingBackupService by lazy {
         EverythingBackupService(
             crypto = BackupCrypto(PasswordHasher()),
             contributors = listOf(
                 AppLockBackupContributor(appLockRepository),
                 KeyStoreBackupContributor(keyStoreRepository),
+                ExpenseBackupContributor(expenseRepository),
             ),
         )
     }
