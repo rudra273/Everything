@@ -37,6 +37,7 @@ import androidx.compose.material.icons.rounded.Upload
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -83,6 +84,7 @@ import com.everything.app.core.ui.Panel
 import com.everything.app.core.ui.PanelAlt
 import com.everything.app.core.ui.SoftText
 import com.everything.app.core.ui.Stroke
+import com.everything.app.core.ui.AppTheme
 import com.everything.app.feature.applock.domain.SettingsPackageResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -169,6 +171,9 @@ fun SettingsScreen(
     var backupConfirmPassword by remember { mutableStateOf("") }
     var backupMessage by remember { mutableStateOf<String?>(null) }
     var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
+
+    val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
+    var currentTheme by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SKY_BLUE.name) ?: AppTheme.SKY_BLUE.name) }
 
     fun resetBackupForm() {
         backupPassword = ""
@@ -264,6 +269,60 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Text(
+                text = "Appearance",
+                color = MutedText,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.8.sp,
+            )
+
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                border = BorderStroke(1.dp, Stroke),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Rounded.Palette,
+                        contentDescription = null,
+                        tint = Cyan,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "App Theme",
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = if (currentTheme == AppTheme.SKY_BLUE.name) "Sky Blue" else "Zinc Rose",
+                            color = MutedText,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        checked = currentTheme == AppTheme.ZINC_ROSE.name,
+                        onCheckedChange = { isZincRose ->
+                            val newTheme = if (isZincRose) AppTheme.ZINC_ROSE.name else AppTheme.SKY_BLUE.name
+                            sharedPrefs.edit().putString("app_theme", newTheme).apply()
+                            currentTheme = newTheme
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFF001716),
+                            checkedTrackColor = Cyan,
+                            uncheckedThumbColor = SoftText,
+                            uncheckedTrackColor = PanelAlt,
+                            uncheckedBorderColor = Stroke,
+                        ),
+                    )
+                }
+            }
+
             Text(
                 text = "Protection",
                 color = MutedText,

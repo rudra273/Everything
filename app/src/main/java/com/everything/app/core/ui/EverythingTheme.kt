@@ -1,5 +1,7 @@
 package com.everything.app.core.ui
 
+import android.content.Context
+import android.content.SharedPreferences
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -14,54 +16,86 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
-// ── Palette (derived from app icon: deep navy + teal/cyan + amber) ──
-val DeepBackground = Color(0xFF060B18)
-val Panel = Color(0xFF0E1528)
-val PanelAlt = Color(0xFF131D38)
-val NavyBlue = Color(0xFF1B2547)
-val Indigo = Color(0xFF101A4D)
-val Cyan = Color(0xFF18E0D2)
-val Teal = Color(0xFF17BFAE)
-val CardGlow = Color(0xFF0CFCE5) // bright highlight for subtle glow effects
-val SoftText = Color(0xFFC8D1E8)
-val MutedText = Color(0xFF7D88A8)
-val Stroke = Color(0xFF1E2D4A)
+enum class AppTheme {
+    SKY_BLUE,
+    ZINC_ROSE
+}
 
-// ── Third accent: Amber / Gold ──
-val Amber = Color(0xFFF5A623)
-val AmberDark = Color(0xFFD4901E)
-val AmberMuted = Color(0x33F5A623) // 20% amber for subtle tints
-val DangerRed = Color(0xFFFF6B6B)
-val DangerRedMuted = Color(0x33FF6B6B)
+val LocalAppTheme = staticCompositionLocalOf { AppTheme.SKY_BLUE }
 
-private val EverythingColors = darkColorScheme(
-    primary = Indigo,
-    onPrimary = Color.White,
-    secondary = Cyan,
-    onSecondary = Color(0xFF001716),
-    background = DeepBackground,
-    onBackground = Color.White,
-    surface = Panel,
-    onSurface = Color.White,
-    surfaceVariant = PanelAlt,
-    onSurfaceVariant = SoftText,
-    outline = Stroke,
-)
+val Cyan @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF38BDF8) else Color(0xFFF43F5E)
+val Teal @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF7DD3FC) else Color(0xFFFB7185)
+val DeepBackground @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF0B0F19) else Color(0xFF09090B)
+val Panel @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF111827) else Color(0xFF18181B)
+val PanelAlt @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF1A2234) else Color(0xFF27272A)
+val SoftText @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFFF1F5F9) else Color(0xFFFAFAFA)
+val MutedText @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF64748B) else Color(0xFF71717A)
+val Stroke @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF1E293B) else Color(0xFF27272A)
+val Amber @Composable get() = Cyan
+val DangerRed @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFFF87171) else Color(0xFFF43F5E)
+
+val AmberMuted @Composable get() = Cyan.copy(alpha = 0.15f)
+val DangerRedMuted @Composable get() = DangerRed.copy(alpha = 0.2f)
+val Indigo @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF243044) else Color(0xFF3F3F46)
+val NavyBlue @Composable get() = PanelAlt
+val CardGlow @Composable get() = Teal.copy(alpha = 0.5f)
 
 @Composable
 fun EverythingTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = EverythingColors,
-        content = {
-            Surface(color = DeepBackground, content = content)
-        },
-    )
+    val context = LocalContext.current
+    val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
+    var themeName by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SKY_BLUE.name) ?: AppTheme.SKY_BLUE.name) }
+    
+    DisposableEffect(sharedPrefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+            if (key == "app_theme") {
+                themeName = prefs.getString("app_theme", AppTheme.SKY_BLUE.name) ?: AppTheme.SKY_BLUE.name
+            }
+        }
+        sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            sharedPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+    
+    val currentTheme = try { AppTheme.valueOf(themeName) } catch (e: Exception) { AppTheme.SKY_BLUE }
+    
+    CompositionLocalProvider(LocalAppTheme provides currentTheme) {
+        val colors = darkColorScheme(
+            primary = Cyan,
+            onPrimary = Color.White,
+            secondary = Teal,
+            onSecondary = Color(0xFF001716),
+            background = DeepBackground,
+            onBackground = SoftText,
+            surface = Panel,
+            onSurface = SoftText,
+            surfaceVariant = PanelAlt,
+            onSurfaceVariant = SoftText,
+            outline = Stroke,
+        )
+
+        MaterialTheme(
+            colorScheme = colors,
+            content = {
+                Surface(color = DeepBackground, content = content)
+            },
+        )
+    }
 }
 
 @Composable

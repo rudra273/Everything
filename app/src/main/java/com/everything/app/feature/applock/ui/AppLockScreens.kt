@@ -403,7 +403,7 @@ private fun ToolGridItem(
             Icon(
                 painter = painterResource(id = iconResId),
                 contentDescription = null,
-                tint = Color(0xFF64B5F6),
+                tint = Cyan,
                 modifier = Modifier.size(28.dp),
             )
         }
