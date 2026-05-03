@@ -260,6 +260,7 @@ fun DashboardScreen(
     lockedCount: Int,
     onOpenAppLock: () -> Unit,
     onOpenKeyStore: () -> Unit,
+    onOpenNotes: () -> Unit,
     onOpenExpenses: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -275,7 +276,7 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Image(
-                    painter = painterResource(id = com.everything.app.R.drawable.everything),
+                    painter = painterResource(id = com.everything.app.R.mipmap.ic_launcher_foreground),
                     contentDescription = "Everything",
                     modifier = Modifier
                         .size(36.dp)
@@ -353,7 +354,7 @@ fun DashboardScreen(
                     ToolGridItem(
                         iconResId = com.everything.app.R.drawable.ic_secure_notes,
                         title = "Notes",
-                        onClick = { /* Placeholder */ },
+                        onClick = onOpenNotes,
                     )
                 }
                 item {

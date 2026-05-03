@@ -14,6 +14,8 @@ import com.everything.app.feature.expense.data.ExpenseMonthEntity
 import com.everything.app.feature.expense.data.MonthlyBillEntity
 import com.everything.app.feature.keystore.data.KeyStoreEntryDao
 import com.everything.app.feature.keystore.data.KeyStoreEntryEntity
+import com.everything.app.feature.notes.data.SecureNoteDao
+import com.everything.app.feature.notes.data.SecureNoteEntity
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
@@ -24,8 +26,9 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ExpenseEntryEntity::class,
         MonthlyBillEntity::class,
         ExpenseMonthEntity::class,
+        SecureNoteEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class EverythingDatabase : RoomDatabase() {
@@ -33,6 +36,7 @@ abstract class EverythingDatabase : RoomDatabase() {
     abstract fun keyStoreEntryDao(): KeyStoreEntryDao
     abstract fun secureSettingDao(): SecureSettingDao
     abstract fun expenseDao(): ExpenseDao
+    abstract fun secureNoteDao(): SecureNoteDao
 
     companion object {
         fun create(
@@ -47,7 +51,7 @@ abstract class EverythingDatabase : RoomDatabase() {
                 "everything_secure.db",
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
         }
 
@@ -150,6 +154,29 @@ abstract class EverythingDatabase : RoomDatabase() {
                     )
                     """.trimIndent(),
                 )
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `secure_notes` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `noteId` TEXT NOT NULL,
+                        `titleCiphertext` BLOB NOT NULL,
+                        `titleIv` BLOB NOT NULL,
+                        `contentCiphertext` BLOB NOT NULL,
+                        `contentIv` BLOB NOT NULL,
+                        `labelsCiphertext` BLOB NOT NULL,
+                        `labelsIv` BLOB NOT NULL,
+                        `version` INTEGER NOT NULL,
+                        `createdAtMillis` INTEGER NOT NULL,
+                        `updatedAtMillis` INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_secure_notes_noteId` ON `secure_notes` (`noteId`)")
             }
         }
     }

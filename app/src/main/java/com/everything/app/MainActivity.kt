@@ -36,6 +36,7 @@ import com.everything.app.feature.applock.ui.PermissionGrantScreen
 import com.everything.app.feature.applock.ui.SetupCredentialScreen
 import com.everything.app.feature.expense.ui.ExpenseScreen
 import com.everything.app.feature.keystore.ui.KeyStoreScreen
+import com.everything.app.feature.notes.ui.SecureNotesScreen
 import com.everything.app.feature.settings.ui.SettingsScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.catch
@@ -68,6 +69,7 @@ private enum class MainRoute {
     Dashboard,
     AppLock,
     KeyStore,
+    Notes,
     Expenses,
     Settings,
 }
@@ -183,6 +185,7 @@ private fun EverythingApp(
             lockedCount = lockedApps.size,
             onOpenAppLock = { route = MainRoute.AppLock },
             onOpenKeyStore = { route = MainRoute.KeyStore },
+            onOpenNotes = { route = MainRoute.Notes },
             onOpenExpenses = { route = MainRoute.Expenses },
             onOpenSettings = { route = MainRoute.Settings },
         )
@@ -199,6 +202,11 @@ private fun EverythingApp(
         )
 
         route == MainRoute.KeyStore -> KeyStoreScreen(
+            container = container,
+            onBack = { route = MainRoute.Dashboard },
+        )
+
+        route == MainRoute.Notes -> SecureNotesScreen(
             container = container,
             onBack = { route = MainRoute.Dashboard },
         )

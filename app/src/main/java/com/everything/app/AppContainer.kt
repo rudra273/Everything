@@ -17,6 +17,8 @@ import com.everything.app.feature.expense.data.ExpenseBackupContributor
 import com.everything.app.feature.expense.data.ExpenseRepository
 import com.everything.app.feature.keystore.data.KeyStoreBackupContributor
 import com.everything.app.feature.keystore.data.KeyStoreRepository
+import com.everything.app.feature.notes.data.SecureNoteBackupContributor
+import com.everything.app.feature.notes.data.SecureNoteRepository
 
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
@@ -45,6 +47,10 @@ class AppContainer(context: Context) {
         ExpenseRepository(database.expenseDao())
     }
 
+    val secureNoteRepository: SecureNoteRepository by lazy {
+        SecureNoteRepository(database.secureNoteDao(), sensitiveValueCipher)
+    }
+
     val backupService: EverythingBackupService by lazy {
         EverythingBackupService(
             crypto = BackupCrypto(PasswordHasher()),
@@ -52,6 +58,7 @@ class AppContainer(context: Context) {
                 AppLockBackupContributor(appLockRepository),
                 KeyStoreBackupContributor(keyStoreRepository),
                 ExpenseBackupContributor(expenseRepository),
+                SecureNoteBackupContributor(secureNoteRepository),
             ),
         )
     }
