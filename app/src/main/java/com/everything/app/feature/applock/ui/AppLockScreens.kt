@@ -37,7 +37,6 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
-import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
@@ -203,7 +202,6 @@ fun BiometricSetupScreen(
 fun PermissionGrantScreen(
     permissions: AppLockPermissionState,
     onRefresh: () -> Unit,
-    onRequestNotifications: () -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -238,12 +236,6 @@ fun PermissionGrantScreen(
                     title = "Overlay",
                     granted = permissions.overlay,
                     onClick = { openSettings { PermissionIntents.overlaySettings(context) } },
-                )
-                PermissionRow(
-                    icon = Icons.Rounded.Notifications,
-                    title = "Notifications",
-                    granted = permissions.notifications,
-                    onClick = onRequestNotifications,
                 )
             }
 

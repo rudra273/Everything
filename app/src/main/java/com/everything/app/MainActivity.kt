@@ -1,12 +1,8 @@
 package com.everything.app
 
-import android.Manifest
-import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.compose.setContent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,7 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.fragment.app.FragmentActivity
 import com.everything.app.core.data.SecureSettingRepository
 import com.everything.app.core.permissions.AppLockPermissionChecker
@@ -32,6 +27,7 @@ import com.everything.app.core.permissions.AppLockPermissionState
 import com.everything.app.core.security.BiometricAuthenticator
 import com.everything.app.core.ui.Cyan
 import com.everything.app.core.ui.EverythingTheme
+import com.everything.app.feature.applock.data.LockedApp
 import com.everything.app.feature.applock.service.AppMonitorService
 import com.everything.app.feature.applock.ui.AppLockScreen
 import com.everything.app.feature.applock.ui.BiometricSetupScreen
@@ -39,8 +35,10 @@ import com.everything.app.feature.applock.ui.DashboardScreen
 import com.everything.app.feature.applock.ui.PermissionGrantScreen
 import com.everything.app.feature.applock.ui.SetupCredentialScreen
 import com.everything.app.feature.settings.ui.SettingsScreen
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : FragmentActivity() {
     private val container: AppContainer
@@ -86,16 +84,7 @@ private fun EverythingApp(
     var biometricMessage by remember { mutableStateOf<String?>(null) }
     var biometricPreferenceLoaded by remember { mutableStateOf(false) }
     var biometricEnabled by remember { mutableStateOf<Boolean?>(null) }
-
-    val lockedApps by container.appLockRepository
-        .observeLockedApps()
-        .collectAsStateWithLifecycle(initialValue = emptyList())
-
-    val notificationLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) {
-        permissions = AppLockPermissionChecker.check(context)
-    }
+    var lockedApps by remember { mutableStateOf(emptyList<LockedApp>()) }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -108,7 +97,10 @@ private fun EverythingApp(
     }
 
     LaunchedEffect(Unit) {
-        container.secureSettingRepository
+        val repository = withContext(Dispatchers.IO) {
+            container.secureSettingRepository
+        }
+        repository
             .observeBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED)
             .catch {
                 biometricEnabled = false
@@ -118,6 +110,16 @@ private fun EverythingApp(
                 biometricEnabled = enabled
                 biometricPreferenceLoaded = true
             }
+    }
+
+    LaunchedEffect(Unit) {
+        val repository = withContext(Dispatchers.IO) {
+            container.appLockRepository
+        }
+        repository
+            .observeLockedApps()
+            .catch { lockedApps = emptyList() }
+            .collect { apps -> lockedApps = apps }
     }
 
     LaunchedEffect(permissions.allGranted, credentialReady, lockedApps.size) {
@@ -167,11 +169,6 @@ private fun EverythingApp(
         !permissions.allGranted -> PermissionGrantScreen(
             permissions = permissions,
             onRefresh = { permissions = AppLockPermissionChecker.check(context) },
-            onRequestNotifications = {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-            },
         )
 
         route == MainRoute.Dashboard -> DashboardScreen(

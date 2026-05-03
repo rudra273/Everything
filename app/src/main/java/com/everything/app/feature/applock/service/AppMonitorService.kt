@@ -1,8 +1,5 @@
 package com.everything.app.feature.applock.service
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -10,11 +7,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
-import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import com.everything.app.EverythingApplication
-import com.everything.app.MainActivity
-import com.everything.app.R
 import com.everything.app.core.data.SecureSettingRepository
 import com.everything.app.core.permissions.AppLockPermissionChecker
 import com.everything.app.core.session.AppLockSessionManager
@@ -48,7 +41,6 @@ class AppMonitorService : Service() {
             credentialRepository = (application as EverythingApplication).container.credentialRepository,
             onBiometricRequested = { packageName -> launchActivityLockScreen(packageName) },
         )
-        startForeground(NOTIFICATION_ID, buildNotification())
         observeLockedApps()
         observeBiometricSetting()
         monitorForegroundApps()
@@ -160,44 +152,11 @@ class AppMonitorService : Service() {
         }.getOrDefault(packageName)
     }
 
-    private fun buildNotification() =
-        NotificationCompat.Builder(this, ensureChannel())
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(getString(R.string.app_lock_notification_title))
-            .setContentText(getString(R.string.app_lock_notification_text))
-            .setOngoing(true)
-            .setSilent(true)
-            .setContentIntent(
-                PendingIntent.getActivity(
-                    this,
-                    0,
-                    Intent(this, MainActivity::class.java),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                ),
-            )
-            .build()
-
-    private fun ensureChannel(): String {
-        val manager = getSystemService(NotificationManager::class.java)
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.app_lock_notification_channel),
-            NotificationManager.IMPORTANCE_LOW,
-        )
-        manager.createNotificationChannel(channel)
-        return CHANNEL_ID
-    }
-
     companion object {
-        private const val CHANNEL_ID = "everything_app_lock"
-        private const val NOTIFICATION_ID = 41
         private const val POLL_INTERVAL_MILLIS = 750L
 
         fun start(context: Context) {
-            ContextCompat.startForegroundService(
-                context,
-                Intent(context, AppMonitorService::class.java),
-            )
+            runCatching { context.startService(Intent(context, AppMonitorService::class.java)) }
         }
 
         fun stop(context: Context) {

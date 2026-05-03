@@ -9,7 +9,9 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 class AndroidKeyStoreCrypto {
-    private val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+    private val keyStore: KeyStore by lazy {
+        KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+    }
 
     fun encrypt(plaintext: ByteArray, aad: ByteArray? = null): CipherPayload {
         val cipher = Cipher.getInstance(TRANSFORMATION)
