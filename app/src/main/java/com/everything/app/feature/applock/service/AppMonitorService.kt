@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import com.everything.app.EverythingApplication
 import com.everything.app.MainActivity
 import com.everything.app.R
+import com.everything.app.core.data.SecureSettingRepository
 import com.everything.app.core.permissions.AppLockPermissionChecker
 import com.everything.app.core.session.AppLockSessionManager
 import com.everything.app.feature.applock.domain.SettingsPackageResolver
@@ -34,6 +35,7 @@ class AppMonitorService : Service() {
     private lateinit var overlayController: LockOverlayController
     private lateinit var settingsPackages: Set<String>
     private var lockedPackages = emptySet<String>()
+    private var biometricEnabled = false
     private var lastForegroundPackage: String? = null
     private var activeActivityLockPackage: String? = null
 
@@ -48,6 +50,7 @@ class AppMonitorService : Service() {
         )
         startForeground(NOTIFICATION_ID, buildNotification())
         observeLockedApps()
+        observeBiometricSetting()
         monitorForegroundApps()
     }
 
@@ -74,6 +77,17 @@ class AppMonitorService : Service() {
                 .catch { lockedPackages = emptySet() }
                 .collect { apps ->
                     lockedPackages = apps.map { it.packageName }.toSet()
+                }
+        }
+    }
+
+    private fun observeBiometricSetting() {
+        val repository = (application as EverythingApplication).container.secureSettingRepository
+        scope.launch {
+            repository.observeBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED)
+                .catch { biometricEnabled = false }
+                .collect { enabled ->
+                    biometricEnabled = enabled == true
                 }
         }
     }
@@ -115,6 +129,10 @@ class AppMonitorService : Service() {
     }
 
     private fun launchLockScreen(packageName: String) {
+        if (biometricEnabled) {
+            mainHandler.post { launchActivityLockScreen(packageName) }
+            return
+        }
         if (packageName !in settingsPackages && Settings.canDrawOverlays(this)) {
             mainHandler.post {
                 overlayController.show(

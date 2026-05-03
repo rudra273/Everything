@@ -36,6 +36,7 @@
             android:exported="false"
             android:launchMode="singleTop"
             android:showWhenLocked="true"
+            android:taskAffinity=""
             android:theme="@style/Theme.Everything.Lock" />
 
         <activity
