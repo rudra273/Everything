@@ -25,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +53,24 @@ val DangerRedMuted @Composable get() = DangerRed.copy(alpha = 0.2f)
 val Indigo @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF243044) else Color(0xFF3F3F46)
 val NavyBlue @Composable get() = PanelAlt
 val CardGlow @Composable get() = Teal.copy(alpha = 0.5f)
+
+@Composable
+fun Modifier.glassSurface(
+    shape: RoundedCornerShape,
+    selected: Boolean = false,
+    tintStrength: Float = 0.10f,
+    @Suppress("UNUSED_PARAMETER") shadowElevation: Float = 4f,
+): Modifier {
+    val tint = if (selected) Cyan else Teal
+    val glassColor = if (selected)
+        tint.copy(alpha = tintStrength + 0.06f)
+    else
+        Color.White.copy(alpha = 0.06f)
+
+    return this
+        .clip(shape)
+        .background(glassColor)
+}
 
 @Composable
 fun EverythingTheme(content: @Composable () -> Unit) {
@@ -110,15 +127,15 @@ fun PrimaryButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(48.dp),
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.height(44.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = Cyan,
             disabledContainerColor = PanelAlt,
             contentColor = Color(0xFF001716),
             disabledContentColor = MutedText,
         ),
-        contentPadding = PaddingValues(horizontal = 24.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp),
     ) {
         leadingIcon?.invoke()
         Text(text = text, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
@@ -136,8 +153,8 @@ fun SecondaryButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(48.dp),
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.height(44.dp),
+        shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, if (enabled) Stroke else Stroke.copy(alpha = 0.5f)),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
@@ -145,7 +162,7 @@ fun SecondaryButton(
             contentColor = Cyan,
             disabledContentColor = MutedText,
         ),
-        contentPadding = PaddingValues(horizontal = 24.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp),
     ) {
         leadingIcon?.invoke()
         Text(text = text, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)

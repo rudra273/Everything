@@ -2,10 +2,7 @@ package com.everything.app.feature.applock.ui
 
 import android.content.ActivityNotFoundException
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,12 +24,11 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Lock
@@ -43,8 +39,6 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,10 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,10 +57,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -86,15 +75,13 @@ import com.everything.app.AppContainer
 import com.everything.app.core.permissions.AppLockPermissionState
 import com.everything.app.core.permissions.PermissionIntents
 import com.everything.app.core.ui.Cyan
-import com.everything.app.core.ui.FullWidthDivider
 import com.everything.app.core.ui.PrimaryButton
 import com.everything.app.core.ui.MutedText
-import com.everything.app.core.ui.Panel
 import com.everything.app.core.ui.PanelAlt
 import com.everything.app.core.ui.SecondaryButton
 import com.everything.app.core.ui.SoftText
 import com.everything.app.core.ui.Stroke
-import com.everything.app.core.ui.Teal
+import com.everything.app.core.ui.glassSurface
 import com.everything.app.feature.applock.domain.InstalledApp
 import kotlinx.coroutines.launch
 
@@ -270,26 +257,25 @@ fun DashboardScreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // ── Header row: app icon + title + settings ──
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Image(
-                    painter = painterResource(id = com.everything.app.R.mipmap.ic_launcher_foreground),
-                    contentDescription = "Everything",
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Everything",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Text(
+                        text = "Dark glass utility launcher",
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+                IconButton(
+                    onClick = onOpenSettings,
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = "Everything",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = onOpenSettings) {
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(16.dp)),
+                ) {
                     Icon(
                         Icons.Rounded.Settings,
                         contentDescription = "Settings",
@@ -308,14 +294,14 @@ fun DashboardScreen(
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Cyan,
-                    unfocusedBorderColor = Stroke,
+                    unfocusedBorderColor = Stroke.copy(alpha = 0.9f),
                     focusedTextColor = SoftText,
                     unfocusedTextColor = SoftText,
                     cursorColor = Cyan,
-                    focusedContainerColor = PanelAlt,
-                    unfocusedContainerColor = PanelAlt,
+                    focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(20.dp)
             )
 
             // ── Tool grid items ──
@@ -329,10 +315,10 @@ fun DashboardScreen(
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = "Security",
-                        color = MutedText,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.2.sp,
+                        color = SoftText,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.sp,
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
@@ -369,10 +355,10 @@ fun DashboardScreen(
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = "Productivity",
-                        color = MutedText,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.2.sp,
+                        color = SoftText,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.sp,
                         modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
                     )
                 }
@@ -418,16 +404,19 @@ private fun ToolGridItem(
         Box(
             modifier = Modifier
                 .size(56.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Panel)
-                .border(1.dp, Stroke, RoundedCornerShape(16.dp)),
+                .glassSurface(
+                    shape = RoundedCornerShape(18.dp),
+                    selected = false,
+                    tintStrength = 0.16f,
+                    shadowElevation = 2f,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 painter = painterResource(id = iconResId),
                 contentDescription = null,
                 tint = Cyan,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(26.dp),
             )
         }
         Spacer(Modifier.height(8.dp))
@@ -463,12 +452,15 @@ fun AppLockScreen(
         installedApps = container.installedAppProvider.loadLaunchableApps()
     }
 
-    val filteredApps = remember(installedApps, query) {
+    val filteredApps = remember(installedApps, query, lockedPackages) {
         installedApps.orEmpty().filter { app ->
             query.isBlank() ||
                 app.label.contains(query, ignoreCase = true) ||
                 app.packageName.contains(query, ignoreCase = true)
-        }
+        }.sortedWith(
+            compareByDescending<InstalledApp> { it.packageName in lockedPackages }
+                .thenBy { it.label.lowercase() }
+        )
     }
 
     Scaffold(
@@ -482,7 +474,7 @@ fun AppLockScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
                 }
                 Spacer(Modifier.width(4.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -508,78 +500,60 @@ fun AppLockScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                PanelAlt.copy(alpha = 0.42f),
+                                MaterialTheme.colorScheme.background,
+                                MaterialTheme.colorScheme.background,
+                            )
+                        )
+                    )
                     .padding(padding)
                     .padding(horizontal = 20.dp)
                     .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // ── Locked Apps section ──
-                if (lockedApps.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Locked Apps",
-                            color = Cyan,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 0.8.sp,
-                            modifier = Modifier.padding(vertical = 6.dp),
-                        )
-                    }
-                    items(lockedApps, key = { "locked_${it.packageName}" }) { app ->
-                        LockedAppRow(
-                            label = app.label,
-                            packageName = app.packageName,
-                            onRemove = {
-                                scope.launch {
-                                    container.appLockRepository.setLocked(
-                                        packageName = app.packageName,
-                                        label = app.label,
-                                        locked = false,
-                                    )
-                                    onSelectionChanged()
-                                }
-                            },
-                        )
-                    }
-                    item { Spacer(Modifier.height(10.dp)) }
-                }
-
-                // ── All apps section ──
                 item {
-                    Text(
-                        text = "All Apps",
-                        color = MutedText,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.8.sp,
-                        modifier = Modifier.padding(vertical = 6.dp),
-                    )
-                }
-
-                // Search
-                item {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MutedText) },
-                        placeholder = { Text("Search apps") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Cyan,
-                            unfocusedBorderColor = Stroke,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            cursorColor = Cyan,
-                            focusedPlaceholderColor = MutedText,
-                            unfocusedPlaceholderColor = MutedText,
-                            focusedContainerColor = Panel,
-                            unfocusedContainerColor = Panel,
-                        ),
-                    )
-                    Spacer(Modifier.height(8.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = Cyan.copy(alpha = 0.85f)) },
+                            placeholder = { Text("Search apps") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(18.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Cyan.copy(alpha = 0.8f),
+                                unfocusedBorderColor = SoftText.copy(alpha = 0.2f),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                cursorColor = Cyan,
+                                focusedPlaceholderColor = MutedText,
+                                unfocusedPlaceholderColor = MutedText,
+                                focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                                unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                            ),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Bottom,
+                        ) {
+                            Text(
+                                text = "Apps",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = "Tap lock icon",
+                                color = MutedText,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
                 }
 
                 items(filteredApps, key = { it.packageName }) { app ->
@@ -604,58 +578,19 @@ fun AppLockScreen(
 }
 
 @Composable
-private fun LockedAppRow(
-    label: String,
-    packageName: String,
-    onRemove: () -> Unit,
-) {
-    Card(
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = Cyan.copy(alpha = 0.08f)),
-        border = BorderStroke(1.dp, Cyan.copy(alpha = 0.18f)),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Cyan.copy(alpha = 0.18f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = label.firstOrNull()?.uppercase() ?: "#",
-                    color = Cyan,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = label,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            IconButton(onClick = onRemove) {
-                Icon(Icons.Rounded.LockOpen, contentDescription = "Unlock", tint = Cyan, modifier = Modifier.size(18.dp))
-            }
-        }
-    }
-}
-
-@Composable
 private fun AppSurface(content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        PanelAlt.copy(alpha = 0.28f),
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.background,
+                    )
+                )
+            )
             .padding(WindowInsets.statusBars.asPaddingValues())
             .padding(WindowInsets.navigationBars.asPaddingValues())
             .padding(16.dp),
@@ -692,11 +627,11 @@ private fun IconBadge(icon: ImageVector) {
     Box(
         modifier = Modifier
             .size(48.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Brush.linearGradient(listOf(Teal, Cyan))),
+            .clip(RoundedCornerShape(16.dp))
+            .background(Cyan.copy(alpha = 0.12f)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFF001716), modifier = Modifier.size(26.dp))
+        Icon(icon, contentDescription = null, tint = Cyan, modifier = Modifier.size(24.dp))
     }
 }
 
@@ -725,17 +660,17 @@ private fun SecureTextField(
             }
         },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Cyan,
-            unfocusedBorderColor = Stroke,
+            unfocusedBorderColor = SoftText.copy(alpha = 0.18f),
             focusedTextColor = Color.White,
             unfocusedTextColor = Color.White,
             cursorColor = Cyan,
             focusedLabelColor = Cyan,
             unfocusedLabelColor = MutedText,
-            focusedContainerColor = Panel,
-            unfocusedContainerColor = Panel,
+            focusedContainerColor = Color.White.copy(alpha = 0.08f),
+            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
         ),
     )
 }
@@ -749,9 +684,7 @@ private fun StatusPanel(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Panel)
-            .border(1.dp, Stroke, RoundedCornerShape(8.dp))
+            .glassSurface(RoundedCornerShape(20.dp), selected = false, shadowElevation = 2f)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -774,9 +707,7 @@ private fun PermissionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Panel)
-            .border(1.dp, Stroke, RoundedCornerShape(8.dp))
+            .glassSurface(RoundedCornerShape(20.dp), selected = granted, shadowElevation = 2f)
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -803,50 +734,51 @@ private fun AppSelectionRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onCheckedChange(!checked) }
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(if (checked) Cyan.copy(alpha = 0.18f) else PanelAlt),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = app.label.firstOrNull()?.uppercase() ?: "#",
-                    color = if (checked) Cyan else SoftText,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = app.label,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-            Switch(
-                modifier = Modifier.scale(0.85f),
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color(0xFF001716),
-                    checkedTrackColor = Cyan,
-                    uncheckedThumbColor = SoftText,
-                    uncheckedTrackColor = PanelAlt,
-                    uncheckedBorderColor = Stroke,
-                ),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(18.dp), selected = checked, shadowElevation = 2f)
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = app.label.firstOrNull()?.uppercase() ?: "#",
+            color = if (checked) Cyan else SoftText,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(28.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = app.label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = if (checked) "Locked app" else "Unlocked",
+                color = MutedText,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall,
             )
         }
-        FullWidthDivider()
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clickable { onCheckedChange(!checked) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = if (checked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                contentDescription = if (checked) "Unlock ${app.label}" else "Lock ${app.label}",
+                tint = Cyan,
+                modifier = Modifier.size(21.dp),
+            )
+        }
     }
 }

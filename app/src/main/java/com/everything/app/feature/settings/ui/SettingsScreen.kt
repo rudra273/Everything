@@ -9,8 +9,8 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,8 +38,6 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,7 +49,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -61,8 +58,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -84,11 +83,10 @@ import com.everything.app.core.ui.Cyan
 import com.everything.app.core.ui.PrimaryButton
 import com.everything.app.core.ui.SecondaryButton
 import com.everything.app.core.ui.MutedText
-import com.everything.app.core.ui.Panel
 import com.everything.app.core.ui.PanelAlt
 import com.everything.app.core.ui.SoftText
-import com.everything.app.core.ui.Stroke
 import com.everything.app.core.ui.AppTheme
+import com.everything.app.core.ui.glassSurface
 import com.everything.app.feature.applock.domain.SettingsPackageResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -266,42 +264,35 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            PanelAlt.copy(alpha = 0.28f),
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.colorScheme.background,
+                        )
+                    )
+                )
                 .padding(padding)
                 .padding(horizontal = 20.dp)
                 .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = "Appearance",
-                color = MutedText,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.8.sp,
-            )
+            SettingsSectionTitle("Appearance")
 
-            Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                border = BorderStroke(1.dp, Stroke),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            GlassSettingsBlock(selected = true) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Rounded.Palette,
-                            contentDescription = null,
-                            tint = Cyan,
-                            modifier = Modifier.size(24.dp),
-                        )
-                        Spacer(Modifier.width(14.dp))
+                        SettingsIconBadge(Icons.Rounded.Palette, selected = true)
+                        Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "App Theme",
                                 fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyMedium,
                             )
                             Text(
                                 text = if (currentTheme == AppTheme.SKY_BLUE.name) "Sky Blue" else "Zinc Rose",
@@ -310,70 +301,57 @@ fun SettingsScreen(
                             )
                         }
                     }
-                    Spacer(Modifier.height(10.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        val skySelected = currentTheme == AppTheme.SKY_BLUE.name
                         Button(
                             onClick = {
                                 sharedPrefs.edit().putString("app_theme", AppTheme.SKY_BLUE.name).apply()
                                 currentTheme = AppTheme.SKY_BLUE.name
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentTheme == AppTheme.SKY_BLUE.name) Cyan else PanelAlt,
-                                contentColor = if (currentTheme == AppTheme.SKY_BLUE.name) Color(0xFF001716) else SoftText
+                                containerColor = if (skySelected) Cyan.copy(alpha = 0.86f) else Color.White.copy(alpha = 0.06f),
+                                contentColor = if (skySelected) Color(0xFF001716) else SoftText
                             ),
-                            modifier = Modifier.weight(1f)
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f).height(40.dp),
                         ) {
-                            Text("Sky Blue")
+                            Text("Sky Blue", style = MaterialTheme.typography.labelLarge)
                         }
+                        val roseSelected = currentTheme == AppTheme.ZINC_ROSE.name
                         Button(
                             onClick = {
                                 sharedPrefs.edit().putString("app_theme", AppTheme.ZINC_ROSE.name).apply()
                                 currentTheme = AppTheme.ZINC_ROSE.name
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentTheme == AppTheme.ZINC_ROSE.name) Cyan else PanelAlt,
-                                contentColor = if (currentTheme == AppTheme.ZINC_ROSE.name) Color(0xFF001716) else SoftText
+                                containerColor = if (roseSelected) Cyan.copy(alpha = 0.86f) else Color.White.copy(alpha = 0.06f),
+                                contentColor = if (roseSelected) Color(0xFF001716) else SoftText
                             ),
-                            modifier = Modifier.weight(1f)
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f).height(40.dp),
                         ) {
-                            Text("Zinc Rose")
+                            Text("Zinc Rose", style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
             }
 
-            Text(
-                text = "Protection",
-                color = MutedText,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.8.sp,
-            )
+            SettingsSectionTitle("Protection")
 
-            Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                border = BorderStroke(1.dp, Stroke),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            GlassSettingsBlock(selected = biometricEnabled == true) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        Icons.Rounded.Fingerprint,
-                        contentDescription = null,
-                        tint = if (biometricEnabled == true) Cyan else MutedText,
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(Modifier.width(14.dp))
+                    SettingsIconBadge(Icons.Rounded.Fingerprint, selected = biometricEnabled == true)
+                    Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Fingerprint Unlock",
                             fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
                             text = if (biometricEnabled == true) "Enabled for Everything tools" else "Use master PIN only",
@@ -389,7 +367,7 @@ fun SettingsScreen(
                         }
                     }
                     Switch(
-                        modifier = Modifier.scale(0.85f),
+                        modifier = Modifier.scale(0.78f),
                         checked = biometricEnabled == true,
                         onCheckedChange = { enable ->
                             biometricMessage = null
@@ -421,38 +399,28 @@ fun SettingsScreen(
                             }
                         },
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(0xFF001716),
-                            checkedTrackColor = Cyan,
+                            checkedThumbColor = Cyan,
+                            checkedTrackColor = Cyan.copy(alpha = 0.22f),
                             uncheckedThumbColor = SoftText,
-                            uncheckedTrackColor = PanelAlt,
-                            uncheckedBorderColor = Stroke,
+                            uncheckedTrackColor = Color.Transparent,
+                            uncheckedBorderColor = SoftText.copy(alpha = 0.22f),
                         ),
                     )
                 }
             }
 
-            Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                border = BorderStroke(1.dp, Stroke),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            GlassSettingsBlock(selected = isAdminActive) {
                 Column {
                     Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            Icons.Rounded.Shield,
-                            contentDescription = null,
-                            tint = if (isAdminActive) Cyan else MutedText,
-                            modifier = Modifier.size(24.dp),
-                        )
-                        Spacer(Modifier.width(14.dp))
+                        SettingsIconBadge(Icons.Rounded.Shield, selected = isAdminActive)
+                        Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Uninstall Protection",
                                 fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyMedium,
                             )
                             Text(
                                 text = if (isAdminActive) "PIN required to uninstall"
@@ -462,7 +430,7 @@ fun SettingsScreen(
                             )
                         }
                         Switch(
-                            modifier = Modifier.scale(0.85f),
+                            modifier = Modifier.scale(0.78f),
                             checked = isAdminActive,
                             onCheckedChange = { enable ->
                                 if (enable) {
@@ -474,18 +442,18 @@ fun SettingsScreen(
                                 }
                             },
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color(0xFF001716),
-                                checkedTrackColor = Cyan,
+                                checkedThumbColor = Cyan,
+                                checkedTrackColor = Cyan.copy(alpha = 0.22f),
                                 uncheckedThumbColor = SoftText,
-                                uncheckedTrackColor = PanelAlt,
-                                uncheckedBorderColor = Stroke,
+                                uncheckedTrackColor = Color.Transparent,
+                                uncheckedBorderColor = SoftText.copy(alpha = 0.22f),
                             ),
                         )
                     }
 
                     if (showDisablePin) {
                         Column(
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+                            modifier = Modifier.padding(top = 10.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             OutlinedTextField(
@@ -508,17 +476,17 @@ fun SettingsScreen(
                                     }
                                 },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                                shape = RoundedCornerShape(10.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Cyan,
-                                    unfocusedBorderColor = Stroke,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.14f),
                                     focusedTextColor = Color.White,
                                     unfocusedTextColor = Color.White,
                                     cursorColor = Cyan,
                                     focusedLabelColor = Cyan,
                                     unfocusedLabelColor = MutedText,
-                                    focusedContainerColor = PanelAlt,
-                                    unfocusedContainerColor = PanelAlt,
+                                    focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                                    unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
                                 ),
                             )
                             disablePinError?.let {
@@ -570,27 +538,16 @@ fun SettingsScreen(
                 )
             }
 
-            Text(
-                text = "Backup",
-                color = MutedText,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.8.sp,
-            )
+            SettingsSectionTitle("Backup")
 
-            Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                border = BorderStroke(1.dp, Stroke),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            GlassSettingsBlock {
                 Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(
                         text = "App Data",
                         fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
                         text = "Exports an encrypted Everything backup file. Store it locally or choose Drive from the file picker.",
@@ -689,6 +646,51 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun SettingsSectionTitle(text: String) {
+    Text(
+        text = text,
+        color = SoftText,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.sp,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+}
+
+@Composable
+private fun GlassSettingsBlock(
+    selected: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(
+                shape = RoundedCornerShape(18.dp),
+                selected = selected,
+                tintStrength = 0.08f,
+                shadowElevation = 2f,
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun SettingsIconBadge(
+    icon: ImageVector,
+    selected: Boolean,
+) {
+    Icon(
+        imageVector = icon,
+        contentDescription = null,
+        tint = if (selected) Cyan else SoftText,
+        modifier = Modifier.size(24.dp),
+    )
+}
+
+@Composable
 private fun BackupPasswordForm(
     action: BackupAction,
     password: String,
@@ -755,17 +757,17 @@ private fun BackupPasswordField(
             }
         },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Cyan,
-            unfocusedBorderColor = Stroke,
+            unfocusedBorderColor = Color.White.copy(alpha = 0.14f),
             focusedTextColor = Color.White,
             unfocusedTextColor = Color.White,
             cursorColor = Cyan,
             focusedLabelColor = Cyan,
             unfocusedLabelColor = MutedText,
-            focusedContainerColor = PanelAlt,
-            unfocusedContainerColor = PanelAlt,
+            focusedContainerColor = Color.White.copy(alpha = 0.08f),
+            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
         ),
     )
 }
