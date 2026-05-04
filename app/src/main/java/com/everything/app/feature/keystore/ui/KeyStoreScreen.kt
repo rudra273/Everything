@@ -42,8 +42,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -81,8 +79,8 @@ import com.everything.app.AppContainer
 import com.everything.app.core.data.SecureSettingRepository
 import com.everything.app.core.security.BiometricAuthenticator
 import com.everything.app.core.ui.Cyan
+import com.everything.app.core.ui.GlassBackground
 import com.everything.app.core.ui.MutedText
-import com.everything.app.core.ui.Panel
 import com.everything.app.core.ui.PanelAlt
 import com.everything.app.core.ui.SoftText
 import com.everything.app.core.ui.Stroke
@@ -91,6 +89,7 @@ import com.everything.app.core.ui.Amber
 import com.everything.app.core.ui.AmberMuted
 import com.everything.app.core.ui.PrimaryButton
 import com.everything.app.core.ui.SecondaryButton
+import com.everything.app.core.ui.glassSurface
 import com.everything.app.feature.keystore.data.KeyStoreEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -207,15 +206,15 @@ fun KeyStoreScreen(
         return
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(WindowInsets.statusBars.asPaddingValues())
-            .padding(horizontal = 20.dp, vertical = 10.dp)
-            .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
+    GlassBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
@@ -263,8 +262,8 @@ fun KeyStoreScreen(
                 focusedTextColor = SoftText,
                 unfocusedTextColor = SoftText,
                 cursorColor = Amber,
-                focusedContainerColor = PanelAlt,
-                unfocusedContainerColor = PanelAlt,
+                focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
             ),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth().onFocusChanged { isSearchFocused = it.isFocused }
@@ -284,7 +283,7 @@ fun KeyStoreScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) Amber else PanelAlt)
+                            .glassSurface(RoundedCornerShape(12.dp), selected = isSelected, tintStrength = 0.08f)
                             .clickable { selectedLabel = if (isSelected) null else lbl }
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center
@@ -335,6 +334,7 @@ fun KeyStoreScreen(
                 }
             }
         }
+    }
     }
 
     actionEntry?.let { entry ->
@@ -395,15 +395,15 @@ private fun KeyStoreUnlockScreen(
     onUnlock: () -> Unit,
     onBiometric: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(WindowInsets.statusBars.asPaddingValues())
-            .padding(horizontal = 20.dp, vertical = 10.dp)
-            .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
+    GlassBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
@@ -415,11 +415,10 @@ private fun KeyStoreUnlockScreen(
             }
         }
 
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Stroke),
-            modifier = Modifier.fillMaxWidth(),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassSurface(RoundedCornerShape(18.dp), selected = false)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -468,6 +467,7 @@ private fun KeyStoreUnlockScreen(
             }
         }
     }
+    }
 }
 
 @Composable
@@ -481,11 +481,10 @@ private fun AddKeyCard(
     var label by remember { mutableStateOf("") }
     val canSave = name.isNotBlank() && value.isNotBlank() && value == confirmValue
 
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Stroke),
-        modifier = Modifier.fillMaxWidth(),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(18.dp), selected = false),
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -524,12 +523,10 @@ private fun KeyEntryRow(
 ) {
     val clipboard = LocalClipboardManager.current
 
-    Card(
-        shape = RoundedCornerShape(6.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Stroke),
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(18.dp), selected = false)
             .combinedClickable(
                 onClick = {},
                 onLongClick = onLongPress,
@@ -553,7 +550,7 @@ private fun KeyEntryRow(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(Cyan.copy(alpha = 0.1f))
+                                .background(Color.White.copy(alpha = 0.06f))
                                 .padding(horizontal = 4.dp, vertical = 2.dp)
                         ) {
                             Text(
@@ -766,7 +763,10 @@ private fun SecureTextField(
             cursorColor = Amber,
             focusedTextColor = SoftText,
             unfocusedTextColor = SoftText,
+            focusedContainerColor = Color.White.copy(alpha = 0.08f),
+            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
         ),
+        shape = RoundedCornerShape(14.dp),
         modifier = Modifier.fillMaxWidth(),
     )
 }
@@ -777,8 +777,7 @@ private fun EmptyState(text: String = "No keys saved") {
         modifier = Modifier
             .fillMaxWidth()
             .height(180.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(PanelAlt),
+            .glassSurface(RoundedCornerShape(18.dp), selected = false),
         contentAlignment = Alignment.Center,
     ) {
         Text(text, color = MutedText)

@@ -1,7 +1,6 @@
 package com.everything.app.feature.expense.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,8 +35,6 @@ import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Subscriptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -68,13 +65,14 @@ import com.everything.app.AppContainer
 import com.everything.app.core.ui.Cyan
 import com.everything.app.core.ui.DangerRed
 import com.everything.app.core.ui.DangerRedMuted
+import com.everything.app.core.ui.GlassBackground
 import com.everything.app.core.ui.MutedText
-import com.everything.app.core.ui.Panel
 import com.everything.app.core.ui.PanelAlt
 import com.everything.app.core.ui.PrimaryButton
 import com.everything.app.core.ui.SecondaryButton
 import com.everything.app.core.ui.SoftText
 import com.everything.app.core.ui.Stroke
+import com.everything.app.core.ui.glassSurface
 import com.everything.app.feature.expense.data.ExpenseEntry
 import com.everything.app.feature.expense.data.ExpenseEntryKind
 import com.everything.app.feature.expense.data.ExpenseMonthSummary
@@ -112,15 +110,15 @@ fun ExpenseScreen(
         container.expenseRepository.ensureMonth(monthKey)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(WindowInsets.statusBars.asPaddingValues())
-            .padding(horizontal = 20.dp, vertical = 10.dp)
-            .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    GlassBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
         ExpenseTopBar(
             selectedMonth = selectedMonth,
             onBack = onBack,
@@ -227,6 +225,7 @@ fun ExpenseScreen(
                 }
             }
         }
+        }
     }
 
     actionEntry?.let { entry ->
@@ -332,7 +331,7 @@ private fun MonthIconButton(
         modifier = Modifier
             .size(36.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(PanelAlt),
+            .background(Color.White.copy(alpha = 0.06f)),
     ) {
         Icon(icon, contentDescription = description, tint = SoftText)
     }
@@ -344,11 +343,10 @@ private fun MonthTotalCard(
     onSetLimit: () -> Unit,
 ) {
     val isOverLimit = summary.limitMinor > 0L && summary.totalMinor > summary.limitMinor
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel),
-        border = BorderStroke(1.dp, if (isOverLimit) DangerRed.copy(alpha = 0.55f) else Stroke),
-        modifier = Modifier.fillMaxWidth(),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(18.dp), selected = false),
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -370,7 +368,7 @@ private fun MonthTotalCard(
                         .height(8.dp)
                         .clip(RoundedCornerShape(8.dp)),
                     color = if (isOverLimit) DangerRed else Cyan,
-                    trackColor = PanelAlt,
+                    trackColor = Color.White.copy(alpha = 0.08f),
                 )
                 Text(
                     text = if (isOverLimit) {
@@ -399,8 +397,7 @@ private fun StatPill(
 ) {
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(PanelAlt)
+            .glassSurface(RoundedCornerShape(14.dp), selected = false, tintStrength = 0.06f)
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -471,11 +468,10 @@ private fun FormCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel),
-        border = BorderStroke(1.dp, Stroke),
-        modifier = Modifier.fillMaxWidth(),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(18.dp), selected = false),
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -512,8 +508,8 @@ private fun ExpenseTextField(
             cursorColor = Cyan,
             focusedTextColor = SoftText,
             unfocusedTextColor = SoftText,
-            focusedContainerColor = PanelAlt,
-            unfocusedContainerColor = PanelAlt,
+            focusedContainerColor = Color.White.copy(alpha = 0.08f),
+            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
         ),
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier.fillMaxWidth(),
@@ -594,8 +590,7 @@ private fun ExpenseBaseRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Panel)
+            .glassSurface(RoundedCornerShape(18.dp), selected = false)
             .combinedClickable(
                 onClick = {},
                 onLongClick = onLongPress,
@@ -607,7 +602,7 @@ private fun ExpenseBaseRow(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(accent.copy(alpha = 0.14f)),
+                    .background(Color.White.copy(alpha = 0.055f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(19.dp))
@@ -632,8 +627,7 @@ private fun EmptyExpenseState(text: String) {
         modifier = Modifier
             .fillMaxWidth()
             .height(96.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(PanelAlt),
+            .glassSurface(RoundedCornerShape(18.dp), selected = false),
         contentAlignment = Alignment.Center,
     ) {
         Text(text, color = MutedText)

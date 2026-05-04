@@ -1,7 +1,6 @@
 package com.everything.app.feature.notes.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
@@ -39,8 +38,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,13 +74,14 @@ import com.everything.app.AppContainer
 import com.everything.app.core.data.SecureSettingRepository
 import com.everything.app.core.security.BiometricAuthenticator
 import com.everything.app.core.ui.Cyan
+import com.everything.app.core.ui.GlassBackground
 import com.everything.app.core.ui.MutedText
-import com.everything.app.core.ui.Panel
 import com.everything.app.core.ui.PanelAlt
 import com.everything.app.core.ui.PrimaryButton
 import com.everything.app.core.ui.SecondaryButton
 import com.everything.app.core.ui.SoftText
 import com.everything.app.core.ui.Stroke
+import com.everything.app.core.ui.glassSurface
 import com.everything.app.feature.notes.data.SecureNote
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -226,15 +224,15 @@ fun SecureNotesScreen(
         return
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(WindowInsets.statusBars.asPaddingValues())
-            .padding(horizontal = 20.dp, vertical = 10.dp)
-            .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    GlassBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
@@ -286,6 +284,7 @@ fun SecureNotesScreen(
                 }
             }
         }
+        }
     }
 
     actionNote?.let { note ->
@@ -323,15 +322,15 @@ private fun NotesUnlockScreen(
     onUnlock: () -> Unit,
     onBiometric: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(WindowInsets.statusBars.asPaddingValues())
-            .padding(horizontal = 20.dp, vertical = 10.dp)
-            .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
+    GlassBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
@@ -342,11 +341,10 @@ private fun NotesUnlockScreen(
             }
         }
 
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel),
-            border = BorderStroke(1.dp, Stroke),
-            modifier = Modifier.fillMaxWidth(),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassSurface(RoundedCornerShape(18.dp), selected = false),
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -373,6 +371,7 @@ private fun NotesUnlockScreen(
             }
         }
     }
+    }
 }
 
 @Composable
@@ -396,15 +395,15 @@ private fun NoteEditorPage(
 
     BackHandler { finish() }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(WindowInsets.statusBars.asPaddingValues())
-            .padding(horizontal = 18.dp, vertical = 8.dp)
-            .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    GlassBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+                .padding(horizontal = 18.dp, vertical = 8.dp)
+                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { finish() }) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
@@ -454,7 +453,7 @@ private fun NoteEditorPage(
                 .focusRequester(noteFocusRequester),
             singleLine = false,
         )
-
+        }
     }
 
     if (labelDialogOpen) {
@@ -548,8 +547,8 @@ private fun LabelPickerDialog(
                         cursorColor = Cyan,
                         focusedTextColor = SoftText,
                         unfocusedTextColor = SoftText,
-                        focusedContainerColor = PanelAlt,
-                        unfocusedContainerColor = PanelAlt,
+                        focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
                     ),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -596,8 +595,8 @@ private fun SearchField(
             focusedTextColor = SoftText,
             unfocusedTextColor = SoftText,
             cursorColor = Cyan,
-            focusedContainerColor = PanelAlt,
-            unfocusedContainerColor = PanelAlt,
+            focusedContainerColor = Color.White.copy(alpha = 0.08f),
+            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
         ),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth(),
@@ -639,8 +638,8 @@ private fun SecureTextField(
             cursorColor = Cyan,
             focusedTextColor = SoftText,
             unfocusedTextColor = SoftText,
-            focusedContainerColor = PanelAlt,
-            unfocusedContainerColor = PanelAlt,
+            focusedContainerColor = Color.White.copy(alpha = 0.08f),
+            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
         ),
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier.fillMaxWidth(),
@@ -656,7 +655,7 @@ private fun LabelChip(
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) Cyan else PanelAlt)
+            .glassSurface(RoundedCornerShape(12.dp), selected = selected, tintStrength = 0.08f)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
@@ -671,12 +670,10 @@ private fun NoteRow(
     onClick: () -> Unit,
     onLongPress: () -> Unit,
 ) {
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel),
-        border = BorderStroke(1.dp, Stroke),
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(18.dp), selected = false)
             .combinedClickable(onClick = onClick, onLongClick = onLongPress),
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -767,8 +764,7 @@ private fun EmptyNotesState(text: String) {
         modifier = Modifier
             .fillMaxWidth()
             .height(160.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(PanelAlt),
+            .glassSurface(RoundedCornerShape(18.dp), selected = false),
         contentAlignment = Alignment.Center,
     ) {
         Text(text, color = MutedText)
