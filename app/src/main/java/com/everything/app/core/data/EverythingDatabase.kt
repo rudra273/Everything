@@ -28,7 +28,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ExpenseMonthEntity::class,
         SecureNoteEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class EverythingDatabase : RoomDatabase() {
@@ -51,7 +51,7 @@ abstract class EverythingDatabase : RoomDatabase() {
                 "everything_secure.db",
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
         }
 
@@ -177,6 +177,19 @@ abstract class EverythingDatabase : RoomDatabase() {
                     """.trimIndent(),
                 )
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_secure_notes_noteId` ON `secure_notes` (`noteId`)")
+            }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `expense_entries` ADD COLUMN `expenseDate` TEXT NOT NULL DEFAULT ''")
+                db.execSQL(
+                    """
+                    UPDATE `expense_entries`
+                    SET `expenseDate` = substr(datetime(`createdAtMillis` / 1000, 'unixepoch'), 1, 10)
+                    WHERE `expenseDate` = ''
+                    """.trimIndent(),
+                )
             }
         }
     }

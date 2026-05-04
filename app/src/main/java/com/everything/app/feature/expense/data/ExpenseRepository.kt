@@ -2,6 +2,8 @@ package com.everything.app.feature.expense.data
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import java.time.LocalDate
+import java.time.YearMonth
 import java.util.UUID
 
 class ExpenseRepository(
@@ -54,9 +56,11 @@ class ExpenseRepository(
         )
     }
 
-    suspend fun addDailyExpense(monthKey: String, title: String, category: String, amountMinor: Long, note: String) {
+    suspend fun addDailyExpense(expenseDate: String, title: String, category: String, amountMinor: Long, note: String) {
         require(title.trim().isNotBlank()) { "Expense title cannot be empty" }
         require(amountMinor > 0L) { "Amount must be greater than zero" }
+        val parsedDate = LocalDate.parse(expenseDate)
+        val monthKey = YearMonth.from(parsedDate).toString()
         ensureMonth(monthKey)
         val now = System.currentTimeMillis()
         dao.upsertEntry(
@@ -68,6 +72,7 @@ class ExpenseRepository(
                 amountMinor = amountMinor,
                 kind = KIND_DAILY,
                 sourceBillId = null,
+                expenseDate = parsedDate.toString(),
                 note = note.trim(),
                 createdAtMillis = now,
                 updatedAtMillis = now,
@@ -96,15 +101,19 @@ class ExpenseRepository(
         dao.deleteEntry(entryId)
     }
 
-    suspend fun updateEntry(entryId: String, title: String, category: String, amountMinor: Long, note: String) {
+    suspend fun updateEntry(entryId: String, title: String, category: String, amountMinor: Long, note: String, expenseDate: String) {
         require(title.trim().isNotBlank()) { "Expense title cannot be empty" }
         require(amountMinor > 0L) { "Amount must be greater than zero" }
+        val parsedDate = LocalDate.parse(expenseDate)
         val existing = dao.getEntry(entryId) ?: return
+        ensureMonth(YearMonth.from(parsedDate).toString())
         dao.upsertEntry(
             existing.copy(
+                monthKey = YearMonth.from(parsedDate).toString(),
                 title = title.trim(),
                 category = category.trim().ifBlank { "General" },
                 amountMinor = amountMinor,
+                expenseDate = parsedDate.toString(),
                 note = note.trim(),
                 updatedAtMillis = System.currentTimeMillis(),
             ),
@@ -153,6 +162,7 @@ class ExpenseRepository(
             amountMinor = amountMinor,
             kind = KIND_MONTHLY_BILL,
             sourceBillId = billId,
+            expenseDate = "$monthKey-01",
             note = "Static monthly bill",
             createdAtMillis = now,
             updatedAtMillis = now,
@@ -168,6 +178,7 @@ class ExpenseRepository(
             amountMinor = amountMinor,
             kind = if (kind == KIND_MONTHLY_BILL) ExpenseEntryKind.MonthlyBill else ExpenseEntryKind.Daily,
             sourceBillId = sourceBillId,
+            expenseDate = expenseDate.ifBlank { monthKey + "-01" },
             note = note,
             createdAtMillis = createdAtMillis,
             updatedAtMillis = updatedAtMillis,
@@ -195,6 +206,7 @@ class ExpenseRepository(
             amountMinor = amountMinor,
             kind = if (kind == ExpenseEntryKind.MonthlyBill) KIND_MONTHLY_BILL else KIND_DAILY,
             sourceBillId = sourceBillId,
+            expenseDate = expenseDate.ifBlank { monthKey + "-01" },
             note = note,
             createdAtMillis = createdAtMillis,
             updatedAtMillis = updatedAtMillis,

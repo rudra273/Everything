@@ -206,135 +206,143 @@ fun KeyStoreScreen(
         return
     }
 
-    GlassBackground {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(WindowInsets.statusBars.asPaddingValues())
-                .padding(horizontal = 20.dp, vertical = 10.dp)
-                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-            }
-            Spacer(Modifier.width(4.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Key Store", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("${filteredEntries.size} of ${entries?.size ?: 0} saved", color = Amber, style = MaterialTheme.typography.bodySmall)
-            }
-            IconButton(
-                onClick = { editorState = if (editorState is KeyEditorState.Add) null else KeyEditorState.Add },
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (editorState is KeyEditorState.Add) PanelAlt else AmberMuted)
-            ) {
-                Icon(if (editorState is KeyEditorState.Add) Icons.Rounded.Close else Icons.Rounded.Add, contentDescription = "Add", tint = if (editorState is KeyEditorState.Add) SoftText else Amber)
-            }
-        }
+    if (editorState is KeyEditorState.Add) {
+        AddKeyScreen(
+            onBack = { editorState = null },
+            onSave = { name, label, value ->
+                scope.launch {
+                    container.keyStoreRepository.addEntry(name, label, value)
+                    editorState = null
+                }
+            },
+        )
+        return
+    }
 
-        if (editorState is KeyEditorState.Add) {
-            AddKeyCard(
-                onCancel = { editorState = null },
-                onSave = { name, label, value ->
-                    scope.launch {
-                        container.keyStoreRepository.addEntry(name, label, value)
-                        editorState = null
+    GlassBackground {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(WindowInsets.statusBars.asPaddingValues())
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
                     }
+                    Spacer(Modifier.width(4.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Key Store", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("${filteredEntries.size} of ${entries?.size ?: 0} saved", color = Amber, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text("Search name or label", style = MaterialTheme.typography.bodySmall) },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.Search, contentDescription = null, tint = MutedText, modifier = Modifier.size(18.dp))
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Amber,
+                        unfocusedBorderColor = Stroke,
+                        focusedTextColor = SoftText,
+                        unfocusedTextColor = SoftText,
+                        cursorColor = Amber,
+                        focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().onFocusChanged { isSearchFocused = it.isFocused }
+                )
+
+                val uniqueLabels = remember(entries) {
+                    entries.orEmpty().map { it.label }.filter { it.isNotBlank() }.toSet().toList().sorted()
+                }
+
+                if (uniqueLabels.isNotEmpty()) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(uniqueLabels) { lbl ->
+                            val isSelected = selectedLabel == lbl
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .glassSurface(RoundedCornerShape(12.dp), selected = isSelected, tintStrength = 0.08f)
+                                    .clickable { selectedLabel = if (isSelected) null else lbl }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = lbl,
+                                    color = if (isSelected) Color(0xFF001716) else SoftText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                when (val currentEntries = entries) {
+                    null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Cyan)
+                    }
+
+                    else -> LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        if (currentEntries.isEmpty()) {
+                            item {
+                                EmptyState()
+                            }
+                        }
+                        if (currentEntries.isNotEmpty() && filteredEntries.isEmpty()) {
+                            item {
+                                EmptyState(text = "No matching keys")
+                            }
+                        }
+                        items(filteredEntries, key = { it.entryId }) { entry ->
+                            KeyEntryRow(
+                                entry = entry,
+                                visible = entry.entryId in visibleEntries,
+                                onToggleVisible = {
+                                    visibleEntries = if (entry.entryId in visibleEntries) {
+                                        visibleEntries - entry.entryId
+                                    } else {
+                                        visibleEntries + entry.entryId
+                                    }
+                                },
+                                onLongPress = { actionEntry = entry },
+                            )
+                        }
+                    }
+                }
+            }
+            PrimaryButton(
+                text = "Add Key",
+                onClick = { editorState = KeyEditorState.Add },
+                leadingIcon = {
+                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
                 },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 20.dp, bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 18.dp),
             )
         }
-
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = { Text("Search name or label", style = MaterialTheme.typography.bodySmall) },
-            leadingIcon = {
-                Icon(Icons.Rounded.Search, contentDescription = null, tint = MutedText, modifier = Modifier.size(18.dp))
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Amber,
-                unfocusedBorderColor = Stroke,
-                focusedTextColor = SoftText,
-                unfocusedTextColor = SoftText,
-                cursorColor = Amber,
-                focusedContainerColor = Color.White.copy(alpha = 0.08f),
-                unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-            ),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth().onFocusChanged { isSearchFocused = it.isFocused }
-        )
-
-        val uniqueLabels = remember(entries) {
-            entries.orEmpty().map { it.label }.filter { it.isNotBlank() }.toSet().toList().sorted()
-        }
-
-        if (uniqueLabels.isNotEmpty()) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(uniqueLabels) { lbl ->
-                    val isSelected = selectedLabel == lbl
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .glassSurface(RoundedCornerShape(12.dp), selected = isSelected, tintStrength = 0.08f)
-                            .clickable { selectedLabel = if (isSelected) null else lbl }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = lbl,
-                            color = if (isSelected) Color(0xFF001716) else SoftText,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-        }
-
-        when (val currentEntries = entries) {
-            null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Cyan)
-            }
-
-            else -> LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                if (currentEntries.isEmpty()) {
-                    item {
-                        EmptyState()
-                    }
-                }
-                if (currentEntries.isNotEmpty() && filteredEntries.isEmpty()) {
-                    item {
-                        EmptyState(text = "No matching keys")
-                    }
-                }
-                items(filteredEntries, key = { it.entryId }) { entry ->
-                    KeyEntryRow(
-                        entry = entry,
-                        visible = entry.entryId in visibleEntries,
-                        onToggleVisible = {
-                            visibleEntries = if (entry.entryId in visibleEntries) {
-                                visibleEntries - entry.entryId
-                            } else {
-                                visibleEntries + entry.entryId
-                            }
-                        },
-                        onLongPress = { actionEntry = entry },
-                    )
-                }
-            }
-        }
-    }
     }
 
     actionEntry?.let { entry ->
@@ -467,6 +475,36 @@ private fun KeyStoreUnlockScreen(
             }
         }
     }
+    }
+}
+
+@Composable
+private fun AddKeyScreen(
+    onBack: () -> Unit,
+    onSave: (String, String, String) -> Unit,
+) {
+    BackHandler { onBack() }
+    GlassBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
+                }
+                Spacer(Modifier.width(4.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Add Key", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Create secure entry", color = Amber, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            AddKeyCard(onCancel = onBack, onSave = onSave)
+        }
     }
 }
 

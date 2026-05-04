@@ -28,8 +28,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Label
 import androidx.compose.material.icons.rounded.Lock
@@ -226,65 +226,72 @@ fun SecureNotesScreen(
     }
 
     GlassBackground {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(WindowInsets.statusBars.asPaddingValues())
-                .padding(horizontal = 20.dp, vertical = 10.dp)
-                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Box(
+            modifier = Modifier.fillMaxSize(),
         ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Secure Notes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("${filteredNotes.size} of ${notes?.size ?: 0} notes", color = Cyan, style = MaterialTheme.typography.bodySmall)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(WindowInsets.statusBars.asPaddingValues())
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Secure Notes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("${filteredNotes.size} of ${notes?.size ?: 0} notes", color = Cyan, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+
+                SearchField(query = query, onQueryChange = { query = it })
+
+                if (uniqueLabels.isNotEmpty()) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        items(uniqueLabels) { label ->
+                            LabelChip(
+                                label = label,
+                                selected = selectedLabel == label,
+                                onClick = { selectedLabel = if (selectedLabel == label) null else label },
+                            )
+                        }
+                    }
+                }
+
+                when (val currentNotes = notes) {
+                    null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Cyan)
+                    }
+                    else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+                        if (currentNotes.isEmpty()) {
+                            item { EmptyNotesState("No secure notes saved") }
+                        } else if (filteredNotes.isEmpty()) {
+                            item { EmptyNotesState("No matching notes") }
+                        }
+                        items(filteredNotes, key = { it.noteId }) { note ->
+                            NoteRow(
+                                note = note,
+                                onClick = { editorState = NoteEditorState.Edit(note) },
+                                onLongPress = { actionNote = note },
+                            )
+                        }
+                        item { Spacer(Modifier.height(64.dp)) }
+                    }
+                }
             }
             IconButton(
                 onClick = { editorState = NoteEditorState.Add },
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Cyan.copy(alpha = 0.16f)),
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 20.dp, bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 18.dp)
+                    .size(52.dp)
+                    .glassSurface(RoundedCornerShape(16.dp), selected = true, tintStrength = 0.12f),
             ) {
-                Icon(Icons.Rounded.Add, contentDescription = "Add note", tint = Cyan)
+                Icon(Icons.Rounded.Edit, contentDescription = "Add note", tint = Color(0xFF001716), modifier = Modifier.size(22.dp))
             }
-        }
-
-        SearchField(query = query, onQueryChange = { query = it })
-
-        if (uniqueLabels.isNotEmpty()) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                items(uniqueLabels) { label ->
-                    LabelChip(
-                        label = label,
-                        selected = selectedLabel == label,
-                        onClick = { selectedLabel = if (selectedLabel == label) null else label },
-                    )
-                }
-            }
-        }
-
-        when (val currentNotes = notes) {
-            null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Cyan)
-            }
-            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
-                if (currentNotes.isEmpty()) {
-                    item { EmptyNotesState("No secure notes saved") }
-                } else if (filteredNotes.isEmpty()) {
-                    item { EmptyNotesState("No matching notes") }
-                }
-                items(filteredNotes, key = { it.noteId }) { note ->
-                    NoteRow(
-                        note = note,
-                        onClick = { editorState = NoteEditorState.Edit(note) },
-                        onLongPress = { actionNote = note },
-                    )
-                }
-            }
-        }
         }
     }
 

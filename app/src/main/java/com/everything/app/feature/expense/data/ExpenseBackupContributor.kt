@@ -3,6 +3,8 @@ package com.everything.app.feature.expense.data
 import com.everything.app.core.backup.BackupContributor
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.Instant
+import java.time.ZoneId
 
 class ExpenseBackupContributor(
     private val repository: ExpenseRepository,
@@ -24,6 +26,7 @@ class ExpenseBackupContributor(
                             .put("amountMinor", entry.amountMinor)
                             .put("kind", entry.kind.name)
                             .put("sourceBillId", entry.sourceBillId)
+                            .put("expenseDate", entry.expenseDate)
                             .put("note", entry.note)
                             .put("createdAtMillis", entry.createdAtMillis)
                             .put("updatedAtMillis", entry.updatedAtMillis),
@@ -79,6 +82,8 @@ class ExpenseBackupContributor(
                                 } else {
                                     entry.optString("sourceBillId").takeIf { it.isNotBlank() }
                                 },
+                                expenseDate = entry.optString("expenseDate")
+                                    .ifBlank { dateFromMillis(entry.getLong("createdAtMillis")) },
                                 note = entry.getString("note"),
                                 createdAtMillis = entry.getLong("createdAtMillis"),
                                 updatedAtMillis = entry.getLong("updatedAtMillis"),
@@ -118,4 +123,8 @@ class ExpenseBackupContributor(
             ),
         )
     }
+}
+
+private fun dateFromMillis(millis: Long): String {
+    return Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate().toString()
 }

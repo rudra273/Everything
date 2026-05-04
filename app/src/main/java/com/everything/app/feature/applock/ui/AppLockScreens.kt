@@ -358,7 +358,7 @@ fun DashboardScreen(
                 item {
                     ToolGridItem(
                         iconResId = com.everything.app.R.drawable.ic_todo_tracker,
-                        title = "TODO",
+                        title = "Habit",
                         onClick = { /* Placeholder */ },
                     )
                 }
@@ -531,15 +531,9 @@ fun AppLockScreen(
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.weight(1f),
                                 )
-                                Text(
-                                    text = "Tap lock icon",
-                                    color = MutedText,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
                         }
                     }
+                }
 
                     items(filteredApps, key = { it.packageName }) { app ->
                         AppSelectionRow(

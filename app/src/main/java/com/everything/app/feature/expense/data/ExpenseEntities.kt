@@ -22,6 +22,7 @@ data class ExpenseEntryEntity(
     val amountMinor: Long,
     val kind: String,
     val sourceBillId: String?,
+    val expenseDate: String,
     val note: String,
     val createdAtMillis: Long,
     val updatedAtMillis: Long,

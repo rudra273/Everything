@@ -8,6 +8,7 @@ data class ExpenseEntry(
     val amountMinor: Long,
     val kind: ExpenseEntryKind,
     val sourceBillId: String?,
+    val expenseDate: String,
     val note: String,
     val createdAtMillis: Long,
     val updatedAtMillis: Long,

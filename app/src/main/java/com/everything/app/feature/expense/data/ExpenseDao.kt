@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ExpenseDao {
-    @Query("SELECT * FROM expense_entries WHERE monthKey = :monthKey ORDER BY createdAtMillis DESC")
+    @Query("SELECT * FROM expense_entries WHERE monthKey = :monthKey ORDER BY expenseDate DESC, createdAtMillis DESC")
     fun observeEntriesForMonth(monthKey: String): Flow<List<ExpenseEntryEntity>>
 
     @Query("SELECT * FROM monthly_bills WHERE active = 1 ORDER BY title COLLATE NOCASE")

@@ -2,6 +2,7 @@ package com.everything.app.feature.expense.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -79,6 +81,7 @@ import com.everything.app.feature.expense.data.ExpenseMonthSummary
 import com.everything.app.feature.expense.data.MonthlyBill
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
+import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Currency
@@ -98,6 +101,7 @@ fun ExpenseScreen(
     val summary by container.expenseRepository
         .observeMonth(monthKey)
         .collectAsStateWithLifecycle(initialValue = null)
+    var selectedExpenseDate by remember(selectedMonth) { mutableStateOf<String?>(null) }
     var addDailyOpen by remember { mutableStateOf(false) }
     var addBillOpen by remember { mutableStateOf(false) }
     var limitOpen by remember { mutableStateOf(false) }
@@ -135,6 +139,14 @@ fun ExpenseScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                val expenseDates = currentSummary.entries
+                    .map { it.expenseDate }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .sortedDescending()
+                val visibleEntries = currentSummary.entries.filter { entry ->
+                    selectedExpenseDate == null || entry.expenseDate == selectedExpenseDate
+                }
                 item {
                     MonthTotalCard(
                         summary = currentSummary,
@@ -169,9 +181,11 @@ fun ExpenseScreen(
                             title = "Add Daily Expense",
                             defaultCategory = "General",
                             onCancel = { addDailyOpen = false },
-                            onSave = { title, category, amount, note ->
+                            onSave = { title, category, amount, note, expenseDate ->
                                 scope.launch {
-                                    container.expenseRepository.addDailyExpense(monthKey, title, category, amount, note)
+                                    container.expenseRepository.addDailyExpense(expenseDate, title, category, amount, note)
+                                    selectedMonth = YearMonth.from(LocalDate.parse(expenseDate))
+                                    selectedExpenseDate = expenseDate
                                     addDailyOpen = false
                                 }
                             },
@@ -210,13 +224,24 @@ fun ExpenseScreen(
                 item {
                     SectionHeader(
                         title = "This Month",
-                        value = "${currentSummary.entries.size} items",
+                        value = "${visibleEntries.size} items",
                     )
+                }
+                if (expenseDates.isNotEmpty()) {
+                    item {
+                        DateFilterRow(
+                            dates = expenseDates,
+                            selectedDate = selectedExpenseDate,
+                            onSelect = { selectedExpenseDate = it },
+                        )
+                    }
                 }
                 if (currentSummary.entries.isEmpty()) {
                     item { EmptyExpenseState("No expenses for this month") }
+                } else if (visibleEntries.isEmpty()) {
+                    item { EmptyExpenseState("No expenses for this date") }
                 } else {
-                    items(currentSummary.entries, key = { it.entryId }) { entry ->
+                    items(visibleEntries, key = { it.entryId }) { entry ->
                         ExpenseEntryRow(
                             entry = entry,
                             onLongPress = { actionEntry = entry },
@@ -247,9 +272,11 @@ fun ExpenseScreen(
         UpdateExpenseDialog(
             entry = entry,
             onDismiss = { editEntry = null },
-            onSave = { title, category, amount, note ->
+            onSave = { title, category, amount, note, expenseDate ->
                 scope.launch {
-                    container.expenseRepository.updateEntry(entry.entryId, title, category, amount, note)
+                    container.expenseRepository.updateEntry(entry.entryId, title, category, amount, note, expenseDate)
+                    selectedMonth = YearMonth.from(LocalDate.parse(expenseDate))
+                    selectedExpenseDate = expenseDate
                     editEntry = null
                 }
             },
@@ -415,17 +442,20 @@ private fun ExpenseFormCard(
     title: String,
     defaultCategory: String,
     onCancel: () -> Unit,
-    onSave: (String, String, Long, String) -> Unit,
+    onSave: (String, String, Long, String, String) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(defaultCategory) }
     var note by remember { mutableStateOf("") }
+    var expenseDate by remember { mutableStateOf(LocalDate.now().toString()) }
     val amountMinor = amount.toMinorOrNull()
-    val canSave = name.isNotBlank() && amountMinor != null && amountMinor > 0L
+    val dateValid = expenseDate.toLocalDateOrNull() != null
+    val canSave = name.isNotBlank() && amountMinor != null && amountMinor > 0L && dateValid
 
     FormCard(title = title, icon = Icons.Rounded.ReceiptLong) {
         ExpenseTextField(value = name, onValueChange = { name = it }, label = "Name")
+        ExpenseTextField(value = expenseDate, onValueChange = { expenseDate = it }, label = "Date (YYYY-MM-DD)")
         ExpenseTextField(
             value = amount,
             onValueChange = { amount = it.cleanAmountInput() },
@@ -434,7 +464,10 @@ private fun ExpenseFormCard(
         )
         ExpenseTextField(value = category, onValueChange = { category = it }, label = "Category")
         ExpenseTextField(value = note, onValueChange = { note = it }, label = "Note")
-        FormActions(canSave = canSave, onCancel = onCancel, onSave = { onSave(name, category, amountMinor ?: 0L, note) })
+        if (expenseDate.isNotBlank() && !dateValid) {
+            Text("Use YYYY-MM-DD date", color = DangerRed, style = MaterialTheme.typography.bodySmall)
+        }
+        FormActions(canSave = canSave, onCancel = onCancel, onSave = { onSave(name, category, amountMinor ?: 0L, note, expenseDate) })
     }
 }
 
@@ -546,6 +579,55 @@ private fun SectionHeader(
 }
 
 @Composable
+private fun DateFilterRow(
+    dates: List<String>,
+    selectedDate: String?,
+    onSelect: (String?) -> Unit,
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        item {
+            DateFilterChip(
+                text = "All",
+                selected = selectedDate == null,
+                onClick = { onSelect(null) },
+            )
+        }
+        items(dates) { date ->
+            DateFilterChip(
+                text = date,
+                selected = selectedDate == date,
+                onClick = { onSelect(date) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun DateFilterChip(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .glassSurface(RoundedCornerShape(12.dp), selected = selected, tintStrength = 0.08f)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = if (selected) Color(0xFF001716) else SoftText,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
 private fun MonthlyBillRow(
     bill: MonthlyBill,
     onStop: () -> Unit,
@@ -569,7 +651,11 @@ private fun ExpenseEntryRow(
     ExpenseBaseRow(
         icon = if (entry.kind == ExpenseEntryKind.MonthlyBill) Icons.Rounded.CalendarMonth else Icons.Rounded.ReceiptLong,
         title = entry.title,
-        category = if (entry.kind == ExpenseEntryKind.MonthlyBill) "${entry.category} monthly" else entry.category,
+        category = if (entry.kind == ExpenseEntryKind.MonthlyBill) {
+            "${entry.category} monthly · ${entry.expenseDate}"
+        } else {
+            "${entry.category} · ${entry.expenseDate}"
+        },
         note = entry.note.takeIf { entry.kind == ExpenseEntryKind.Daily && it.isNotBlank() },
         amount = money(entry.amountMinor),
         accent = accent,
@@ -687,14 +773,16 @@ private fun ExpenseActionDialog(
 private fun UpdateExpenseDialog(
     entry: ExpenseEntry,
     onDismiss: () -> Unit,
-    onSave: (String, String, Long, String) -> Unit,
+    onSave: (String, String, Long, String, String) -> Unit,
 ) {
     var name by remember(entry.entryId) { mutableStateOf(entry.title) }
     var amount by remember(entry.entryId) { mutableStateOf(minorToInput(entry.amountMinor)) }
     var category by remember(entry.entryId) { mutableStateOf(entry.category) }
     var note by remember(entry.entryId) { mutableStateOf(entry.note) }
+    var expenseDate by remember(entry.entryId) { mutableStateOf(entry.expenseDate) }
     val amountMinor = amount.toMinorOrNull()
-    val canSave = name.isNotBlank() && amountMinor != null && amountMinor > 0L
+    val dateValid = expenseDate.toLocalDateOrNull() != null
+    val canSave = name.isNotBlank() && amountMinor != null && amountMinor > 0L && dateValid
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -702,6 +790,7 @@ private fun UpdateExpenseDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ExpenseTextField(value = name, onValueChange = { name = it }, label = "Name")
+                ExpenseTextField(value = expenseDate, onValueChange = { expenseDate = it }, label = "Date (YYYY-MM-DD)")
                 ExpenseTextField(
                     value = amount,
                     onValueChange = { amount = it.cleanAmountInput() },
@@ -710,12 +799,15 @@ private fun UpdateExpenseDialog(
                 )
                 ExpenseTextField(value = category, onValueChange = { category = it }, label = "Category")
                 ExpenseTextField(value = note, onValueChange = { note = it }, label = "Note")
+                if (expenseDate.isNotBlank() && !dateValid) {
+                    Text("Use YYYY-MM-DD date", color = DangerRed, style = MaterialTheme.typography.bodySmall)
+                }
             }
         },
         confirmButton = {
             TextButton(
                 enabled = canSave,
-                onClick = { onSave(name, category, amountMinor ?: 0L, note) },
+                onClick = { onSave(name, category, amountMinor ?: 0L, note, expenseDate) },
             ) {
                 Text("Save", color = if (canSave) Cyan else MutedText, fontWeight = FontWeight.Bold)
             }
@@ -834,6 +926,10 @@ private fun String.cleanAmountInput(): String {
 private fun String.toMinorOrNull(): Long? {
     val value = toDoubleOrNull() ?: return null
     return (value * 100.0).roundToLong()
+}
+
+private fun String.toLocalDateOrNull(): LocalDate? {
+    return runCatching { LocalDate.parse(this) }.getOrNull()
 }
 
 private fun minorToInput(amountMinor: Long): String {
