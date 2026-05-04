@@ -106,6 +106,10 @@ fun SecureNotesScreen(
     var unlockPin by remember { mutableStateOf("") }
     var unlockError by remember { mutableStateOf<String?>(null) }
     var biometricEnabled by remember { mutableStateOf(false) }
+    val toolLocked by container.secureSettingRepository
+        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_NOTES)
+        .collectAsStateWithLifecycle(initialValue = true)
+    val isToolLocked = toolLocked != false
     var editorState by remember { mutableStateOf<NoteEditorState?>(null) }
     var actionNote by remember { mutableStateOf<SecureNote?>(null) }
     var confirmDeleteNote by remember { mutableStateOf<SecureNote?>(null) }
@@ -130,10 +134,22 @@ fun SecureNotesScreen(
     }
 
     LaunchedEffect(Unit) {
+        val storedToolLocked = container.secureSettingRepository
+            .getBoolean(SecureSettingRepository.KEY_TOOL_LOCK_NOTES) != false
         biometricEnabled = container.secureSettingRepository
             .getBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED) == true
-        if (biometricEnabled) {
+        if (storedToolLocked && biometricEnabled) {
             tryBiometricUnlock()
+        }
+    }
+
+    LaunchedEffect(isToolLocked) {
+        if (!isToolLocked) {
+            unlocked = true
+            unlockPin = ""
+            unlockError = null
+        } else {
+            unlocked = false
         }
     }
 
@@ -147,7 +163,7 @@ fun SecureNotesScreen(
         }
     }
 
-    if (!unlocked) {
+    if (isToolLocked && !unlocked) {
         NotesUnlockScreen(
             pin = unlockPin,
             error = unlockError,

@@ -120,6 +120,10 @@ fun KeyStoreScreen(
     var unlockPin by remember { mutableStateOf("") }
     var unlockError by remember { mutableStateOf<String?>(null) }
     var biometricEnabled by remember { mutableStateOf(false) }
+    val toolLocked by container.secureSettingRepository
+        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE)
+        .collectAsStateWithLifecycle(initialValue = true)
+    val isToolLocked = toolLocked != false
     val entries by container.keyStoreRepository
         .observeEntries()
         .collectAsStateWithLifecycle(initialValue = null)
@@ -169,14 +173,26 @@ fun KeyStoreScreen(
     }
 
     LaunchedEffect(Unit) {
+        val storedToolLocked = container.secureSettingRepository
+            .getBoolean(SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE) != false
         biometricEnabled = container.secureSettingRepository
             .getBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED) == true
-        if (biometricEnabled) {
+        if (storedToolLocked && biometricEnabled) {
             tryBiometricUnlock()
         }
     }
 
-    if (!unlocked) {
+    LaunchedEffect(isToolLocked) {
+        if (!isToolLocked) {
+            unlocked = true
+            unlockPin = ""
+            unlockError = null
+        } else {
+            unlocked = false
+        }
+    }
+
+    if (isToolLocked && !unlocked) {
         KeyStoreUnlockScreen(
             pin = unlockPin,
             error = unlockError,

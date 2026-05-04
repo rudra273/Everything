@@ -31,8 +31,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.NoteAlt
 import androidx.compose.material.icons.rounded.Upload
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Visibility
@@ -165,6 +169,15 @@ fun SettingsScreen(
     val biometricEnabled by container.secureSettingRepository
         .observeBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED)
         .collectAsStateWithLifecycle(initialValue = false)
+    val appLockToolLocked by container.secureSettingRepository
+        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK)
+        .collectAsStateWithLifecycle(initialValue = true)
+    val keyStoreToolLocked by container.secureSettingRepository
+        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE)
+        .collectAsStateWithLifecycle(initialValue = true)
+    val notesToolLocked by container.secureSettingRepository
+        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_NOTES)
+        .collectAsStateWithLifecycle(initialValue = true)
 
     val settingsPackages = remember(context) { SettingsPackageResolver.resolve(context) }
     var isAdminActive by remember { mutableStateOf(isDeviceAdminActive(context)) }
@@ -172,6 +185,13 @@ fun SettingsScreen(
     var disablePin by remember { mutableStateOf("") }
     var disablePinError by remember { mutableStateOf<String?>(null) }
     var disablePinVisible by remember { mutableStateOf(false) }
+    var showChangePin by remember { mutableStateOf(false) }
+    var oldPin by remember { mutableStateOf("") }
+    var newPin by remember { mutableStateOf("") }
+    var confirmNewPin by remember { mutableStateOf("") }
+    var changePinError by remember { mutableStateOf<String?>(null) }
+    var changePinMessage by remember { mutableStateOf<String?>(null) }
+    var changingPin by remember { mutableStateOf(false) }
     var biometricMessage by remember { mutableStateOf<String?>(null) }
     var backupAction by remember { mutableStateOf<BackupAction?>(null) }
     var backupPassword by remember { mutableStateOf("") }
@@ -326,6 +346,200 @@ fun SettingsScreen(
             }
 
             SettingsSectionTitle("Protection")
+
+            GlassSettingsBlock(
+                selected = appLockToolLocked != false ||
+                    keyStoreToolLocked != false ||
+                    notesToolLocked != false,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Utility Tool Locks",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = "Choose which Everything tools need the master PIN before opening.",
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    UtilityToolLockRow(
+                        icon = Icons.Rounded.Apps,
+                        title = "App Lock",
+                        locked = appLockToolLocked != false,
+                        onLockedChange = { locked ->
+                            scope.launch {
+                                container.secureSettingRepository.putBoolean(
+                                    SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK,
+                                    locked,
+                                )
+                            }
+                        },
+                    )
+                    UtilityToolLockRow(
+                        icon = Icons.Rounded.Key,
+                        title = "Key Store",
+                        locked = keyStoreToolLocked != false,
+                        onLockedChange = { locked ->
+                            scope.launch {
+                                container.secureSettingRepository.putBoolean(
+                                    SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE,
+                                    locked,
+                                )
+                            }
+                        },
+                    )
+                    UtilityToolLockRow(
+                        icon = Icons.Rounded.NoteAlt,
+                        title = "Notes",
+                        locked = notesToolLocked != false,
+                        onLockedChange = { locked ->
+                            scope.launch {
+                                container.secureSettingRepository.putBoolean(
+                                    SecureSettingRepository.KEY_TOOL_LOCK_NOTES,
+                                    locked,
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+
+            GlassSettingsBlock(selected = showChangePin) {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SettingsIconBadge(Icons.Rounded.Lock, selected = showChangePin)
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Master PIN",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                text = "Change the PIN used to unlock Everything",
+                                color = MutedText,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            changePinMessage?.let {
+                                Text(
+                                    text = it,
+                                    color = Cyan,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                        SecondaryButton(
+                            text = if (showChangePin) "Close" else "Change",
+                            onClick = {
+                                showChangePin = !showChangePin
+                                oldPin = ""
+                                newPin = ""
+                                confirmNewPin = ""
+                                changePinError = null
+                                if (showChangePin) {
+                                    changePinMessage = null
+                                }
+                            },
+                        )
+                    }
+
+                    if (showChangePin) {
+                        val pinsMatch = newPin == confirmNewPin
+                        val canChangePin = oldPin.length >= 4 &&
+                            newPin.length >= 4 &&
+                            confirmNewPin.length >= 4 &&
+                            pinsMatch &&
+                            !changingPin
+
+                        Column(
+                            modifier = Modifier.padding(top = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            PinTextField(
+                                value = oldPin,
+                                onValueChange = {
+                                    oldPin = it.filter(Char::isDigit).take(12)
+                                    changePinError = null
+                                },
+                                label = "Old PIN",
+                            )
+                            PinTextField(
+                                value = newPin,
+                                onValueChange = {
+                                    newPin = it.filter(Char::isDigit).take(12)
+                                    changePinError = null
+                                },
+                                label = "New PIN",
+                            )
+                            PinTextField(
+                                value = confirmNewPin,
+                                onValueChange = {
+                                    confirmNewPin = it.filter(Char::isDigit).take(12)
+                                    changePinError = null
+                                },
+                                label = "Confirm new PIN",
+                            )
+                            if (newPin.isNotEmpty() && confirmNewPin.isNotEmpty() && !pinsMatch) {
+                                Text("PINs do not match", color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
+                            }
+                            changePinError?.let {
+                                Text(text = it, color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                SecondaryButton(
+                                    text = "Cancel",
+                                    enabled = !changingPin,
+                                    onClick = {
+                                        showChangePin = false
+                                        oldPin = ""
+                                        newPin = ""
+                                        confirmNewPin = ""
+                                        changePinError = null
+                                    },
+                                )
+                                PrimaryButton(
+                                    text = if (changingPin) "Saving" else "Save",
+                                    enabled = canChangePin,
+                                    onClick = {
+                                        scope.launch {
+                                            changingPin = true
+                                            changePinError = null
+                                            changePinMessage = null
+                                            runCatching {
+                                                val oldCandidate = oldPin
+                                                val newCandidate = newPin
+                                                val valid = withContext(Dispatchers.Default) {
+                                                    container.credentialRepository.verify(oldCandidate.toCharArray())
+                                                }
+                                                if (valid) {
+                                                    withContext(Dispatchers.Default) {
+                                                        container.credentialRepository.saveCredential(newCandidate.toCharArray())
+                                                    }
+                                                    oldPin = ""
+                                                    newPin = ""
+                                                    confirmNewPin = ""
+                                                    showChangePin = false
+                                                    changePinMessage = "PIN updated"
+                                                } else {
+                                                    oldPin = ""
+                                                    changePinError = "Old PIN is incorrect"
+                                                }
+                                            }.onFailure { error ->
+                                                changePinError = error.message ?: "Could not update PIN"
+                                            }.also {
+                                                changingPin = false
+                                            }
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             GlassSettingsBlock(selected = biometricEnabled == true) {
                 Row(
@@ -674,6 +888,86 @@ private fun SettingsIconBadge(
         contentDescription = null,
         tint = if (selected) Cyan else SoftText,
         modifier = Modifier.size(24.dp),
+    )
+}
+
+@Composable
+private fun UtilityToolLockRow(
+    icon: ImageVector,
+    title: String,
+    locked: Boolean,
+    onLockedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SettingsIconBadge(icon, selected = locked)
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = if (locked) "Master PIN required" else "Opens without PIN",
+                color = MutedText,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        Switch(
+            modifier = Modifier.scale(0.78f),
+            checked = locked,
+            onCheckedChange = onLockedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Cyan,
+                checkedTrackColor = Cyan.copy(alpha = 0.22f),
+                uncheckedThumbColor = SoftText,
+                uncheckedTrackColor = Color.Transparent,
+                uncheckedBorderColor = SoftText.copy(alpha = 0.22f),
+            ),
+        )
+    }
+}
+
+@Composable
+private fun PinTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+) {
+    var visible by remember { mutableStateOf(false) }
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(label) },
+        singleLine = true,
+        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = {
+            IconButton(onClick = { visible = !visible }) {
+                Icon(
+                    if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                    contentDescription = if (visible) "Hide" else "Show",
+                    tint = SoftText,
+                )
+            }
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Cyan,
+            unfocusedBorderColor = Color.White.copy(alpha = 0.14f),
+            focusedTextColor = Color.White,
+            unfocusedTextColor = Color.White,
+            cursorColor = Cyan,
+            focusedLabelColor = Cyan,
+            unfocusedLabelColor = MutedText,
+            focusedContainerColor = Color.White.copy(alpha = 0.08f),
+            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+        ),
     )
 }
 

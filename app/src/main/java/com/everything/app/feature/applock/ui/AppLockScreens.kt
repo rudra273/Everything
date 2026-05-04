@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.everything.app.AppContainer
+import com.everything.app.core.data.SecureSettingRepository
 import com.everything.app.core.permissions.AppLockPermissionState
 import com.everything.app.core.permissions.PermissionIntents
 import com.everything.app.core.ui.Cyan
@@ -82,7 +83,9 @@ import com.everything.app.core.ui.SoftText
 import com.everything.app.core.ui.Stroke
 import com.everything.app.core.ui.glassSurface
 import com.everything.app.feature.applock.domain.InstalledApp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SetupCredentialScreen(
@@ -434,8 +437,15 @@ fun AppLockScreen(
     BackHandler { onBack() }
 
     val scope = rememberCoroutineScope()
+    var unlocked by remember { mutableStateOf(false) }
+    var unlockPin by remember { mutableStateOf("") }
+    var unlockError by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
     var installedApps by remember { mutableStateOf<List<InstalledApp>?>(null) }
+    val toolLocked by container.secureSettingRepository
+        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK)
+        .collectAsStateWithLifecycle(initialValue = true)
+    val isToolLocked = toolLocked != false
     val lockedApps by container.appLockRepository
         .observeLockedApps()
         .collectAsStateWithLifecycle(initialValue = emptyList())
@@ -443,6 +453,46 @@ fun AppLockScreen(
 
     LaunchedEffect(Unit) {
         installedApps = container.installedAppProvider.loadLaunchableApps()
+    }
+
+    LaunchedEffect(isToolLocked) {
+        if (!isToolLocked) {
+            unlocked = true
+            unlockPin = ""
+            unlockError = null
+        } else {
+            unlocked = false
+        }
+    }
+
+    if (isToolLocked && !unlocked) {
+        UtilityUnlockScreen(
+            title = "App Lock",
+            subtitle = "Enter master PIN to manage locked apps",
+            pin = unlockPin,
+            error = unlockError,
+            onBack = onBack,
+            onPinChange = {
+                unlockPin = it.filter(Char::isDigit).take(12)
+                unlockError = null
+            },
+            onUnlock = {
+                scope.launch {
+                    val pin = unlockPin
+                    val valid = withContext(Dispatchers.Default) {
+                        container.credentialRepository.verify(pin.toCharArray())
+                    }
+                    if (valid) {
+                        unlocked = true
+                        unlockPin = ""
+                    } else {
+                        unlockError = "Wrong PIN"
+                        unlockPin = ""
+                    }
+                }
+            },
+        )
+        return
     }
 
     val filteredApps = remember(installedApps, query, lockedPackages) {
@@ -553,6 +603,58 @@ fun AppLockScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun UtilityUnlockScreen(
+    title: String,
+    subtitle: String,
+    pin: String,
+    error: String?,
+    onBack: () -> Unit,
+    onPinChange: (String) -> Unit,
+    onUnlock: () -> Unit,
+) {
+    AppSurface {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
+                    }
+                    Spacer(Modifier.width(4.dp))
+                    Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+                BrandHeader(
+                    icon = Icons.Rounded.Lock,
+                    title = title,
+                    subtitle = subtitle,
+                )
+                SecureTextField(
+                    value = pin,
+                    onValueChange = onPinChange,
+                    label = "Master PIN",
+                )
+                error?.let {
+                    Text(text = it, color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            PrimaryButton(
+                text = "Unlock",
+                enabled = pin.length >= 4,
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = {
+                    Icon(Icons.Rounded.LockOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                },
+                onClick = onUnlock,
+            )
         }
     }
 }
