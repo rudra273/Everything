@@ -35,25 +35,38 @@ import androidx.compose.ui.unit.dp
 
 enum class AppTheme {
     SKY_BLUE,
-    ZINC_ROSE
+    ZINC_ROSE,
+    SPACE_BLACK,
 }
 
-val LocalAppTheme = staticCompositionLocalOf { AppTheme.SKY_BLUE }
+val LocalAppTheme = staticCompositionLocalOf { AppTheme.SPACE_BLACK }
 
-val Cyan @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF38BDF8) else Color(0xFFF43F5E)
-val Teal @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF7DD3FC) else Color(0xFFFB7185)
-val DeepBackground @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF0B0F19) else Color(0xFF09090B)
-val Panel @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF111827) else Color(0xFF18181B)
-val PanelAlt @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF1A2234) else Color(0xFF27272A)
+val Cyan @Composable get() = when (LocalAppTheme.current) {
+    AppTheme.SKY_BLUE -> Color(0xFF38BDF8)
+    AppTheme.ZINC_ROSE -> Color(0xFFF43F5E)
+    AppTheme.SPACE_BLACK -> Color(0xFFE5E7EB)
+}
+val Teal @Composable get() = when (LocalAppTheme.current) {
+    AppTheme.SKY_BLUE -> Color(0xFF7DD3FC)
+    AppTheme.ZINC_ROSE -> Color(0xFFFB7185)
+    AppTheme.SPACE_BLACK -> Color(0xFF9CA3AF)
+}
+val DeepBackground @Composable get() = Color(0xFF09090B)
+val Panel @Composable get() = Color(0xFF18181B)
+val PanelAlt @Composable get() = Color(0xFF27272A)
 val SoftText @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFFF1F5F9) else Color(0xFFFAFAFA)
-val MutedText @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF64748B) else Color(0xFF71717A)
-val Stroke @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF1E293B) else Color(0xFF27272A)
+val MutedText @Composable get() = when (LocalAppTheme.current) {
+    AppTheme.SKY_BLUE -> Color(0xFF64748B)
+    AppTheme.ZINC_ROSE -> Color(0xFF71717A)
+    AppTheme.SPACE_BLACK -> Color(0xFFA1A1AA)
+}
+val Stroke @Composable get() = Color(0xFF27272A)
 val Amber @Composable get() = Cyan
 val DangerRed @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFFF87171) else Color(0xFFF43F5E)
 
 val AmberMuted @Composable get() = Cyan.copy(alpha = 0.15f)
 val DangerRedMuted @Composable get() = DangerRed.copy(alpha = 0.2f)
-val Indigo @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFF243044) else Color(0xFF3F3F46)
+val Indigo @Composable get() = Color(0xFF3F3F46)
 val NavyBlue @Composable get() = PanelAlt
 val CardGlow @Composable get() = Teal.copy(alpha = 0.5f)
 
@@ -95,8 +108,8 @@ fun GlassBackground(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        PanelAlt.copy(alpha = 0.34f),
-                        DeepBackground.copy(alpha = 0.92f),
+                        PanelAlt.copy(alpha = 0.14f),
+                        DeepBackground.copy(alpha = 0.98f),
                         DeepBackground,
                     )
                 )
@@ -104,18 +117,18 @@ fun GlassBackground(
             .background(
                 Brush.linearGradient(
                     listOf(
-                        Teal.copy(alpha = 0.16f),
+                        Teal.copy(alpha = 0.045f),
                         Color.Transparent,
-                        Cyan.copy(alpha = 0.07f),
+                        Cyan.copy(alpha = 0.025f),
                     )
                 )
             )
             .background(
                 Brush.linearGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.045f),
-                        Color.Transparent,
                         Color.White.copy(alpha = 0.018f),
+                        Color.Transparent,
+                        Color.White.copy(alpha = 0.008f),
                     )
                 )
             ),
@@ -128,12 +141,12 @@ fun GlassBackground(
 fun EverythingTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
-    var themeName by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SKY_BLUE.name) ?: AppTheme.SKY_BLUE.name) }
+    var themeName by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name) }
     
     DisposableEffect(sharedPrefs) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
             if (key == "app_theme") {
-                themeName = prefs.getString("app_theme", AppTheme.SKY_BLUE.name) ?: AppTheme.SKY_BLUE.name
+                themeName = prefs.getString("app_theme", AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name
             }
         }
         sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
@@ -142,7 +155,7 @@ fun EverythingTheme(content: @Composable () -> Unit) {
         }
     }
     
-    val currentTheme = try { AppTheme.valueOf(themeName) } catch (e: Exception) { AppTheme.SKY_BLUE }
+    val currentTheme = try { AppTheme.valueOf(themeName) } catch (e: Exception) { AppTheme.SPACE_BLACK }
     
     CompositionLocalProvider(LocalAppTheme provides currentTheme) {
         val colors = darkColorScheme(

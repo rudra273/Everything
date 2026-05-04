@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -100,6 +101,12 @@ private enum class BackupAction {
     Import,
 }
 
+private fun AppTheme.displayName(): String = when (this) {
+    AppTheme.SPACE_BLACK -> "space dark"
+    AppTheme.SKY_BLUE -> "Sky Blue"
+    AppTheme.ZINC_ROSE -> "Zinc Rose"
+}
+
 private fun deviceAdminComponent(context: Context) =
     ComponentName(context, EverythingDeviceAdmin::class.java)
 
@@ -173,7 +180,7 @@ fun SettingsScreen(
     var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
 
     val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
-    var currentTheme by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SKY_BLUE.name) ?: AppTheme.SKY_BLUE.name) }
+    var currentTheme by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name) }
 
     fun resetBackupForm() {
         backupPassword = ""
@@ -284,46 +291,35 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
-                            Text(
-                                text = if (currentTheme == AppTheme.SKY_BLUE.name) "Sky Blue" else "Zinc Rose",
-                                color = MutedText,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            val selectedTheme = runCatching { AppTheme.valueOf(currentTheme) }.getOrDefault(AppTheme.SPACE_BLACK)
+                            Text(selectedTheme.displayName(), color = MutedText, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val skySelected = currentTheme == AppTheme.SKY_BLUE.name
-                        Button(
-                            onClick = {
-                                sharedPrefs.edit().putString("app_theme", AppTheme.SKY_BLUE.name).apply()
-                                currentTheme = AppTheme.SKY_BLUE.name
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (skySelected) Cyan.copy(alpha = 0.86f) else Color.White.copy(alpha = 0.06f),
-                                contentColor = if (skySelected) Color(0xFF001716) else SoftText
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f).height(40.dp),
-                        ) {
-                            Text("Sky Blue", style = MaterialTheme.typography.labelLarge)
-                        }
-                        val roseSelected = currentTheme == AppTheme.ZINC_ROSE.name
-                        Button(
-                            onClick = {
-                                sharedPrefs.edit().putString("app_theme", AppTheme.ZINC_ROSE.name).apply()
-                                currentTheme = AppTheme.ZINC_ROSE.name
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (roseSelected) Cyan.copy(alpha = 0.86f) else Color.White.copy(alpha = 0.06f),
-                                contentColor = if (roseSelected) Color(0xFF001716) else SoftText
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f).height(40.dp),
-                        ) {
-                            Text("Zinc Rose", style = MaterialTheme.typography.labelLarge)
+                        listOf(AppTheme.SPACE_BLACK, AppTheme.SKY_BLUE, AppTheme.ZINC_ROSE).forEach { theme ->
+                            val selected = currentTheme == theme.name
+                            Button(
+                                onClick = {
+                                    sharedPrefs.edit().putString("app_theme", theme.name).apply()
+                                    currentTheme = theme.name
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (selected) Cyan.copy(alpha = 0.86f) else Color.White.copy(alpha = 0.06f),
+                                    contentColor = if (selected) Color(0xFF001716) else SoftText
+                                ),
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f).height(40.dp),
+                            ) {
+                                Text(
+                                    text = theme.displayName(),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                    maxLines = 1,
+                                )
+                            }
                         }
                     }
                 }

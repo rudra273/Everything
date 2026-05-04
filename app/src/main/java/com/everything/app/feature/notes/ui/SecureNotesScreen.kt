@@ -74,6 +74,7 @@ import com.everything.app.AppContainer
 import com.everything.app.core.data.SecureSettingRepository
 import com.everything.app.core.security.BiometricAuthenticator
 import com.everything.app.core.ui.Cyan
+import com.everything.app.core.ui.DeepBackground
 import com.everything.app.core.ui.GlassBackground
 import com.everything.app.core.ui.MutedText
 import com.everything.app.core.ui.PanelAlt
@@ -428,31 +429,41 @@ private fun NoteEditorPage(
             }
         }
 
-        PlainNoteTextField(
-            value = title,
-            onValueChange = { title = it },
-            placeholder = "Title",
-            textStyle = MaterialTheme.typography.titleLarge.copy(
-                color = SoftText,
-                fontWeight = FontWeight.SemiBold,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            imeAction = ImeAction.Next,
-            onNext = { noteFocusRequester.requestFocus() },
-        )
-
-        PlainNoteTextField(
-            value = content,
-            onValueChange = { content = it },
-            placeholder = "Note",
-            textStyle = MaterialTheme.typography.bodyMedium.copy(color = SoftText),
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .focusRequester(noteFocusRequester),
-            singleLine = false,
-        )
+                .clip(RoundedCornerShape(18.dp))
+                .background(DeepBackground.copy(alpha = 0.82f))
+                .padding(horizontal = 12.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            PlainNoteTextField(
+                value = title,
+                onValueChange = { title = it },
+                placeholder = "Title",
+                textStyle = MaterialTheme.typography.titleLarge.copy(
+                    color = SoftText,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                imeAction = ImeAction.Next,
+                onNext = { noteFocusRequester.requestFocus() },
+            )
+
+            PlainNoteTextField(
+                value = content,
+                onValueChange = { content = it },
+                placeholder = "Note",
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = SoftText),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .focusRequester(noteFocusRequester),
+                singleLine = false,
+            )
+        }
         }
     }
 
