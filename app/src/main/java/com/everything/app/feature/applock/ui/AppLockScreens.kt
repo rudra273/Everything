@@ -254,32 +254,26 @@ fun DashboardScreen(
     AppSurface {
         Column(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Everything",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                    )
-                    Text(
-                        text = "Dark glass utility launcher",
-                        color = MutedText,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Everything",
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
                 IconButton(
                     onClick = onOpenSettings,
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(16.dp)),
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(14.dp)),
                 ) {
                     Icon(
                         Icons.Rounded.Settings,
                         contentDescription = "Settings",
                         tint = SoftText,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -315,10 +309,10 @@ fun DashboardScreen(
                     Text(
                         text = "Security",
                         color = SoftText,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+                        fontWeight = FontWeight.SemiBold,
                         letterSpacing = 0.sp,
-                        modifier = Modifier.padding(bottom = 4.dp)
+                        modifier = Modifier.padding(bottom = 2.dp)
                     )
                 }
                 item {
@@ -355,10 +349,10 @@ fun DashboardScreen(
                     Text(
                         text = "Productivity",
                         color = SoftText,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+                        fontWeight = FontWeight.SemiBold,
                         letterSpacing = 0.sp,
-                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
                     )
                 }
                 item {
@@ -398,7 +392,7 @@ private fun ToolGridItem(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(8.dp)
+            .padding(6.dp)
     ) {
         Box(
             modifier = Modifier
@@ -418,10 +412,10 @@ private fun ToolGridItem(
                 modifier = Modifier.size(26.dp),
             )
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             text = title,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
             fontWeight = FontWeight.SemiBold,
             color = SoftText,
             textAlign = TextAlign.Center,
