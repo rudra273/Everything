@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -80,6 +81,47 @@ fun Modifier.glassSurface(
             )
         )
         .border(0.5.dp, edgeColor, shape)
+}
+
+@Composable
+fun GlassBackground(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(DeepBackground)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        PanelAlt.copy(alpha = 0.34f),
+                        DeepBackground.copy(alpha = 0.92f),
+                        DeepBackground,
+                    )
+                )
+            )
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Teal.copy(alpha = 0.16f),
+                        Color.Transparent,
+                        Cyan.copy(alpha = 0.07f),
+                    )
+                )
+            )
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.045f),
+                        Color.Transparent,
+                        Color.White.copy(alpha = 0.018f),
+                    )
+                )
+            ),
+    ) {
+        content()
+    }
 }
 
 @Composable

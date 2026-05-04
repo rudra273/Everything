@@ -57,7 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -75,9 +74,9 @@ import com.everything.app.AppContainer
 import com.everything.app.core.permissions.AppLockPermissionState
 import com.everything.app.core.permissions.PermissionIntents
 import com.everything.app.core.ui.Cyan
+import com.everything.app.core.ui.GlassBackground
 import com.everything.app.core.ui.PrimaryButton
 import com.everything.app.core.ui.MutedText
-import com.everything.app.core.ui.PanelAlt
 import com.everything.app.core.ui.SecondaryButton
 import com.everything.app.core.ui.SoftText
 import com.everything.app.core.ui.Stroke
@@ -463,114 +462,107 @@ fun AppLockScreen(
         )
     }
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(WindowInsets.statusBars.asPaddingValues())
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-                }
-                Spacer(Modifier.width(4.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "App Lock",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "${lockedApps.size} apps protected",
-                        color = MutedText,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-            }
-        },
-    ) { padding ->
-        if (installedApps == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Cyan)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                PanelAlt.copy(alpha = 0.42f),
-                                MaterialTheme.colorScheme.background,
-                                MaterialTheme.colorScheme.background,
-                            )
+    GlassBackground {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(WindowInsets.statusBars.asPaddingValues())
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
+                    }
+                    Spacer(Modifier.width(4.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "App Lock",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
                         )
-                    )
-                    .padding(padding)
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(
-                            value = query,
-                            onValueChange = { query = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = Cyan.copy(alpha = 0.85f)) },
-                            placeholder = { Text("Search apps") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(18.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Cyan.copy(alpha = 0.8f),
-                                unfocusedBorderColor = SoftText.copy(alpha = 0.2f),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                cursorColor = Cyan,
-                                focusedPlaceholderColor = MutedText,
-                                unfocusedPlaceholderColor = MutedText,
-                                focusedContainerColor = Color.White.copy(alpha = 0.08f),
-                                unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-                            ),
+                        Text(
+                            text = "${lockedApps.size} apps protected",
+                            color = MutedText,
+                            style = MaterialTheme.typography.bodySmall,
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.Bottom,
-                        ) {
-                            Text(
-                                text = "Apps",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Text(
-                                text = "Tap lock icon",
-                                color = MutedText,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
                     }
                 }
-
-                items(filteredApps, key = { it.packageName }) { app ->
-                    AppSelectionRow(
-                        app = app,
-                        checked = app.packageName in lockedPackages,
-                        onCheckedChange = { checked ->
-                            scope.launch {
-                                container.appLockRepository.setLocked(
-                                    packageName = app.packageName,
-                                    label = app.label,
-                                    locked = checked,
+            },
+        ) { padding ->
+            if (installedApps == null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Cyan)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 20.dp)
+                        .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedTextField(
+                                value = query,
+                                onValueChange = { query = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = Cyan.copy(alpha = 0.85f)) },
+                                placeholder = { Text("Search apps") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(18.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Cyan.copy(alpha = 0.8f),
+                                    unfocusedBorderColor = SoftText.copy(alpha = 0.2f),
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    cursorColor = Cyan,
+                                    focusedPlaceholderColor = MutedText,
+                                    unfocusedPlaceholderColor = MutedText,
+                                    focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                                    unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                                ),
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.Bottom,
+                            ) {
+                                Text(
+                                    text = "Apps",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f),
                                 )
-                                onSelectionChanged()
+                                Text(
+                                    text = "Tap lock icon",
+                                    color = MutedText,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
                             }
-                        },
-                    )
+                        }
+                    }
+
+                    items(filteredApps, key = { it.packageName }) { app ->
+                        AppSelectionRow(
+                            app = app,
+                            checked = app.packageName in lockedPackages,
+                            onCheckedChange = { checked ->
+                                scope.launch {
+                                    container.appLockRepository.setLocked(
+                                        packageName = app.packageName,
+                                        label = app.label,
+                                        locked = checked,
+                                    )
+                                    onSelectionChanged()
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -579,23 +571,16 @@ fun AppLockScreen(
 
 @Composable
 private fun AppSurface(content: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        PanelAlt.copy(alpha = 0.28f),
-                        MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.background,
-                    )
-                )
-            )
-            .padding(WindowInsets.statusBars.asPaddingValues())
-            .padding(WindowInsets.navigationBars.asPaddingValues())
-            .padding(16.dp),
-    ) {
-        content()
+    GlassBackground {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+                .padding(WindowInsets.navigationBars.asPaddingValues())
+                .padding(16.dp),
+        ) {
+            content()
+        }
     }
 }
 
