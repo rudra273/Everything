@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -62,14 +64,22 @@ fun Modifier.glassSurface(
     @Suppress("UNUSED_PARAMETER") shadowElevation: Float = 4f,
 ): Modifier {
     val tint = if (selected) Cyan else Teal
-    val glassColor = if (selected)
-        tint.copy(alpha = tintStrength + 0.06f)
-    else
-        Color.White.copy(alpha = 0.06f)
+    
+    // Smooth gradient for light reflection (glass shine)
+    val topColor = if (selected) tint.copy(alpha = tintStrength + 0.12f) else Color.White.copy(alpha = 0.10f)
+    val bottomColor = if (selected) tint.copy(alpha = tintStrength + 0.02f) else Color.White.copy(alpha = 0.02f)
+    
+    // Subtle edge highlight (rim lighting)
+    val edgeColor = if (selected) tint.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.15f)
 
     return this
         .clip(shape)
-        .background(glassColor)
+        .background(
+            Brush.linearGradient(
+                colors = listOf(topColor, bottomColor)
+            )
+        )
+        .border(0.5.dp, edgeColor, shape)
 }
 
 @Composable
