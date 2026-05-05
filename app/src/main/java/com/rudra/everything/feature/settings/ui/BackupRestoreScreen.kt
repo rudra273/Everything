@@ -136,6 +136,9 @@ fun BackupRestoreScreen(
     val driveLastBackupAt by container.secureSettingRepository
         .observeString(SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_AT)
         .collectAsStateWithLifecycle(initialValue = null)
+    val driveLastBackupSizeBytes by container.secureSettingRepository
+        .observeString(SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES)
+        .collectAsStateWithLifecycle(initialValue = null)
 
     val driveSchedule = DriveBackupSchedule.fromValue(driveScheduleValue)
     var activeSheet by remember { mutableStateOf<BackupSheet?>(null) }
@@ -156,7 +159,7 @@ fun BackupRestoreScreen(
     val lastBackupText = latestBackup?.createdAtDisplay
         ?: driveLastBackupAt?.toLongOrNull()?.let(BackupFileNames::displayDate)
         ?: "Never"
-    val lastBackupSizeText = latestBackup?.sizeBytes.displaySize()
+    val lastBackupSizeText = (latestBackup?.sizeBytes ?: driveLastBackupSizeBytes?.toLongOrNull()).displaySize()
     val accountSubtitle = selectedDriveAccount ?: "Select Google account"
 
     LaunchedEffect(Unit) {
@@ -236,6 +239,22 @@ fun BackupRestoreScreen(
                 }
             }.onSuccess { backups ->
                 driveBackups = backups
+                val latest = backups.firstOrNull()
+                if (latest == null) {
+                    container.secureSettingRepository.delete(SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_AT)
+                    container.secureSettingRepository.delete(SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES)
+                } else {
+                    container.secureSettingRepository.putString(
+                        SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_AT,
+                        latest.createdAtMillis.toString(),
+                    )
+                    latest.sizeBytes?.let { sizeBytes ->
+                        container.secureSettingRepository.putString(
+                            SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES,
+                            sizeBytes.toString(),
+                        )
+                    }
+                }
                 container.secureSettingRepository.putBoolean(SecureSettingRepository.KEY_DRIVE_NEEDS_AUTHORIZATION, false)
                 container.secureSettingRepository.delete(SecureSettingRepository.KEY_DRIVE_LAST_ERROR)
             }.onFailure { error ->
@@ -265,10 +284,16 @@ fun BackupRestoreScreen(
                         source = DriveBackupSource.Manual,
                     )
                 }
+                upload to encryptedBackup.toByteArray(Charsets.UTF_8).size.toLong()
+            }.onSuccess { (upload, fallbackSizeBytes) ->
                 container.secureSettingRepository.putBoolean(SecureSettingRepository.KEY_DRIVE_NEEDS_AUTHORIZATION, false)
                 container.secureSettingRepository.putString(
                     SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_AT,
                     upload.file.createdAtMillis.toString(),
+                )
+                container.secureSettingRepository.putString(
+                    SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES,
+                    (upload.file.sizeBytes ?: fallbackSizeBytes).toString(),
                 )
                 container.secureSettingRepository.delete(SecureSettingRepository.KEY_DRIVE_LAST_ERROR)
                 driveBackups = withContext(Dispatchers.IO) {

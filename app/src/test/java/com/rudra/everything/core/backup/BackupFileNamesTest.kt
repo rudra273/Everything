@@ -22,7 +22,7 @@ class BackupFileNamesTest {
 
         assertEquals(2, parsed?.version)
         assertEquals(Instant.parse("2026-05-05T14:30:12Z").toEpochMilli(), parsed?.exportedAtMillis)
-        assertEquals("2026-05-05 20:00", parsed?.exportedAt)
+        assertEquals("05 May, 8:00 PM", parsed?.exportedAt)
     }
 
     @Test

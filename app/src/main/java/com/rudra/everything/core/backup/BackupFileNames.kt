@@ -4,13 +4,14 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 object BackupFileNames {
     private val driveBackupRegex = Regex("""everything-backup-v(\d+)-(\d{8})T(\d{6})Z\.everything""")
     private val legacyBackupRegex = Regex("""everything-v(\d+)-(\d{8})-(\d{6})\.everything""")
     private val driveFormatter = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmssX")
         .withZone(ZoneOffset.UTC)
-    private val displayFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+    private val displayFormatter = DateTimeFormatter.ofPattern("dd MMM, h:mm a", Locale.ENGLISH)
         .withZone(ZoneId.of("Asia/Kolkata"))
 
     fun backupName(

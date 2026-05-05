@@ -54,16 +54,21 @@ class DriveBackupWorker(
         val passwordChars = password.toCharArray()
         runCatching {
             val encryptedBackup = container.backupService.exportEncrypted(passwordChars)
-            GoogleDriveBackupClient().uploadBackup(
+            val upload = GoogleDriveBackupClient().uploadBackup(
                 accessToken = accessToken,
                 encryptedBackup = encryptedBackup,
                 source = DriveBackupSource.Automatic,
             )
-        }.onSuccess { upload ->
+            upload to encryptedBackup.toByteArray(Charsets.UTF_8).size.toLong()
+        }.onSuccess { (upload, fallbackSizeBytes) ->
             settings.putBoolean(SecureSettingRepository.KEY_DRIVE_NEEDS_AUTHORIZATION, false)
             settings.putString(
                 SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_AT,
                 upload.file.createdAtMillis.toString(),
+            )
+            settings.putString(
+                SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES,
+                (upload.file.sizeBytes ?: fallbackSizeBytes).toString(),
             )
             settings.delete(SecureSettingRepository.KEY_DRIVE_LAST_ERROR)
         }.onFailure { error ->

@@ -57,6 +57,7 @@ class SecureSettingRepository(
         const val KEY_BACKUP_PASSWORD = "backup.password"
         const val KEY_DRIVE_BACKUP_SCHEDULE = "backup.drive.schedule"
         const val KEY_DRIVE_LAST_BACKUP_AT = "backup.drive.last_backup_at"
+        const val KEY_DRIVE_LAST_BACKUP_SIZE_BYTES = "backup.drive.last_backup_size_bytes"
         const val KEY_DRIVE_LAST_ERROR = "backup.drive.last_error"
         const val KEY_DRIVE_NEEDS_AUTHORIZATION = "backup.drive.needs_authorization"
         const val KEY_DRIVE_ACCOUNT_EMAIL = "backup.drive.account_email"
