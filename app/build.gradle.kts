@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.everything.app"
+    namespace = "com.rudra.everything"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -13,11 +13,17 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.everything.app"
+        applicationId = "com.rudra.everything"
         minSdk = 31
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        resValue(
+            "string",
+            "google_oauth_client_id",
+            "95943503525-ik2amhopbtjnuirdi4vbuc70h7smc9c4.apps.googleusercontent.com"
+        )
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -37,6 +43,7 @@ android {
     }
     buildFeatures {
         compose = true
+        resValues = true
     }
 }
 
@@ -55,9 +62,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.argon2kt)
     implementation(libs.material)
+    implementation(libs.play.services.auth)
     implementation(libs.sqlcipher)
     ksp(libs.androidx.room.compiler)
     debugImplementation(libs.androidx.compose.ui.tooling)
