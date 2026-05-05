@@ -17,7 +17,19 @@ class SecureSettingRepository(
         return dao.observe(key).map { it?.decrypt()?.toBooleanStrictOrNull() }
     }
 
+    suspend fun getString(key: String): String? {
+        return dao.get(key)?.decrypt()
+    }
+
+    fun observeString(key: String): Flow<String?> {
+        return dao.observe(key).map { it?.decrypt() }
+    }
+
     suspend fun putBoolean(key: String, value: Boolean) {
+        putString(key, value.toString())
+    }
+
+    suspend fun putString(key: String, value: String) {
         val payload = cipher.encryptString(value.toString(), aad = key)
         dao.upsert(
             SecureSettingEntity(
@@ -29,6 +41,10 @@ class SecureSettingRepository(
         )
     }
 
+    suspend fun delete(key: String) {
+        dao.delete(key)
+    }
+
     private fun SecureSettingEntity.decrypt(): String {
         return cipher.decryptString(
             payload = CipherPayload(valueCiphertext, valueIv),
@@ -38,6 +54,11 @@ class SecureSettingRepository(
 
     companion object {
         const val KEY_BIOMETRIC_ENABLED = "app_lock.biometric_enabled"
+        const val KEY_BACKUP_PASSWORD = "backup.password"
+        const val KEY_DRIVE_BACKUP_SCHEDULE = "backup.drive.schedule"
+        const val KEY_DRIVE_LAST_BACKUP_AT = "backup.drive.last_backup_at"
+        const val KEY_DRIVE_LAST_ERROR = "backup.drive.last_error"
+        const val KEY_DRIVE_NEEDS_AUTHORIZATION = "backup.drive.needs_authorization"
         const val KEY_TOOL_LOCK_APP_LOCK = "utility_lock.app_lock"
         const val KEY_TOOL_LOCK_KEY_STORE = "utility_lock.key_store"
         const val KEY_TOOL_LOCK_NOTES = "utility_lock.notes"

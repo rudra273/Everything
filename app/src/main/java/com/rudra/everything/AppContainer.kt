@@ -2,7 +2,9 @@ package com.rudra.everything
 
 import android.content.Context
 import com.rudra.everything.core.backup.BackupCrypto
+import com.rudra.everything.core.backup.DriveBackupScheduler
 import com.rudra.everything.core.backup.EverythingBackupService
+import com.rudra.everything.core.backup.GoogleDriveBackupClient
 import com.rudra.everything.core.data.DatabasePassphraseProvider
 import com.rudra.everything.core.data.EverythingDatabase
 import com.rudra.everything.core.data.SecureSettingRepository
@@ -61,6 +63,14 @@ class AppContainer(context: Context) {
                 SecureNoteBackupContributor(secureNoteRepository),
             ),
         )
+    }
+
+    val googleDriveBackupClient: GoogleDriveBackupClient by lazy {
+        GoogleDriveBackupClient()
+    }
+
+    val driveBackupScheduler: DriveBackupScheduler by lazy {
+        DriveBackupScheduler(appContext)
     }
 
     val installedAppProvider = InstalledAppProvider(appContext)

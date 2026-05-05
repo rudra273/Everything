@@ -4,12 +4,8 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import android.provider.OpenableColumns
-import androidx.activity.result.IntentSenderRequest
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,12 +30,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NoteAlt
-import androidx.compose.material.icons.rounded.Upload
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -80,8 +74,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.fragment.app.FragmentActivity
 import com.rudra.everything.AppContainer
-import com.rudra.everything.core.backup.EverythingBackupService
-import com.rudra.everything.core.backup.GoogleDriveBackupClient
 import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.security.EverythingDeviceAdmin
@@ -94,26 +86,11 @@ import com.rudra.everything.core.ui.SoftText
 import com.rudra.everything.core.ui.AppTheme
 import com.rudra.everything.core.ui.glassSurface
 import com.rudra.everything.feature.applock.domain.SettingsPackageResolver
-import com.google.android.gms.auth.api.identity.AuthorizationRequest
-import com.google.android.gms.auth.api.identity.AuthorizationResult
-import com.google.android.gms.auth.api.identity.Identity
-import com.google.android.gms.common.api.ApiException
-import com.google.android.gms.common.api.Scope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 private const val SETTINGS_LABEL = "Settings"
-private const val BACKUP_MIME_TYPE = "application/vnd.everything.backup+json"
-private const val DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
-
-private enum class BackupAction {
-    Export,
-    ExportToDrive,
-    Import,
-}
 
 private fun AppTheme.displayName(): String = when (this) {
     AppTheme.SPACE_BLACK -> "space dark"
@@ -168,6 +145,7 @@ private suspend fun setSettingsLocked(
 fun SettingsScreen(
     container: AppContainer,
     onBack: () -> Unit,
+    onOpenBackupRestore: () -> Unit,
 ) {
     BackHandler { onBack() }
 
@@ -203,140 +181,9 @@ fun SettingsScreen(
     var changePinMessage by remember { mutableStateOf<String?>(null) }
     var changingPin by remember { mutableStateOf(false) }
     var biometricMessage by remember { mutableStateOf<String?>(null) }
-    var backupAction by remember { mutableStateOf<BackupAction?>(null) }
-    var backupPassword by remember { mutableStateOf("") }
-    var backupConfirmPassword by remember { mutableStateOf("") }
-    var backupMessage by remember { mutableStateOf<String?>(null) }
-    var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
-    var pendingDriveBackup by remember { mutableStateOf<DriveBackupPayload?>(null) }
 
     val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
     var currentTheme by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name) }
-    val googleDriveBackupClient = remember { GoogleDriveBackupClient() }
-
-    fun resetBackupForm() {
-        backupPassword = ""
-        backupConfirmPassword = ""
-        backupAction = null
-        pendingImportUri = null
-    }
-
-    fun uploadPendingBackupToDrive(authorizationResult: AuthorizationResult) {
-        val backup = pendingDriveBackup
-        val accessToken = authorizationResult.accessToken
-        if (backup == null) {
-            backupMessage = "Drive backup failed: backup was not prepared"
-            return
-        }
-        if (accessToken.isNullOrBlank()) {
-            pendingDriveBackup = null
-            backupMessage = "Drive backup failed: Google did not return an access token"
-            return
-        }
-        scope.launch {
-            backupMessage = runCatching {
-                withContext(Dispatchers.IO) {
-                    googleDriveBackupClient.uploadBackup(
-                        accessToken = accessToken,
-                        fileName = backup.fileName,
-                        encryptedBackup = backup.encryptedBackup,
-                    )
-                }
-                "Drive backup complete: ${backup.fileName}"
-            }.getOrElse { error ->
-                "Drive backup failed: ${error.message ?: "unknown error"}"
-            }
-            pendingDriveBackup = null
-        }
-    }
-
-    val driveAuthorizationLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartIntentSenderForResult(),
-    ) { result ->
-        val data = result.data
-        if (data == null) {
-            pendingDriveBackup = null
-            backupMessage = "Drive backup canceled"
-            return@rememberLauncherForActivityResult
-        }
-        runCatching {
-            Identity.getAuthorizationClient(activity).getAuthorizationResultFromIntent(data)
-        }.onSuccess { authorizationResult ->
-            uploadPendingBackupToDrive(authorizationResult)
-        }.onFailure { error ->
-            pendingDriveBackup = null
-            val message = (error as? ApiException)?.statusCode?.let { "Google authorization failed ($it)" }
-                ?: "Google authorization failed: ${error.message ?: "unknown error"}"
-            backupMessage = message
-        }
-    }
-
-    fun requestDriveAuthorization() {
-        val request = AuthorizationRequest.builder()
-            .setRequestedScopes(listOf(Scope(DRIVE_FILE_SCOPE)))
-            .build()
-
-        Identity.getAuthorizationClient(activity)
-            .authorize(request)
-            .addOnSuccessListener { authorizationResult ->
-                if (authorizationResult.hasResolution()) {
-                    val pendingIntent = authorizationResult.pendingIntent
-                    if (pendingIntent == null) {
-                        pendingDriveBackup = null
-                        backupMessage = "Google authorization failed: no sign-in prompt was available"
-                        return@addOnSuccessListener
-                    }
-                    driveAuthorizationLauncher.launch(
-                        IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
-                    )
-                } else {
-                    uploadPendingBackupToDrive(authorizationResult)
-                }
-            }
-            .addOnFailureListener { error ->
-                pendingDriveBackup = null
-                backupMessage = "Google authorization failed: ${error.message ?: "unknown error"}"
-            }
-    }
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument(BACKUP_MIME_TYPE),
-    ) { uri: Uri? ->
-        val password = backupPassword.toCharArray()
-        resetBackupForm()
-        if (uri == null) {
-            password.fill('\u0000')
-            return@rememberLauncherForActivityResult
-        }
-        scope.launch {
-            backupMessage = runCatching {
-                val encryptedBackup = withContext(Dispatchers.Default) {
-                    container.backupService.exportEncrypted(password)
-                }
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri)?.use { output ->
-                        output.write(encryptedBackup.toByteArray(Charsets.UTF_8))
-                    } ?: error("Could not open export location")
-                }
-                "Export complete"
-            }.getOrElse { error ->
-                password.fill('\u0000')
-                "Export failed: ${error.message ?: "unknown error"}"
-            }
-        }
-    }
-
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri: Uri? ->
-        if (uri != null) {
-            pendingImportUri = uri
-            backupAction = BackupAction.Import
-            backupPassword = ""
-            backupConfirmPassword = ""
-            backupMessage = selectedBackupMessage(context, uri)
-        }
-    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -436,64 +283,6 @@ fun SettingsScreen(
             }
 
             SettingsSectionTitle("Protection")
-
-            GlassSettingsBlock(
-                selected = appLockToolLocked != false ||
-                    keyStoreToolLocked != false ||
-                    notesToolLocked != false,
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = "Utility Tool Locks",
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        text = "Choose which Everything tools need the master PIN before opening.",
-                        color = MutedText,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    UtilityToolLockRow(
-                        icon = Icons.Rounded.Apps,
-                        title = "App Lock",
-                        locked = appLockToolLocked != false,
-                        onLockedChange = { locked ->
-                            scope.launch {
-                                container.secureSettingRepository.putBoolean(
-                                    SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK,
-                                    locked,
-                                )
-                            }
-                        },
-                    )
-                    UtilityToolLockRow(
-                        icon = Icons.Rounded.Key,
-                        title = "Key Store",
-                        locked = keyStoreToolLocked != false,
-                        onLockedChange = { locked ->
-                            scope.launch {
-                                container.secureSettingRepository.putBoolean(
-                                    SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE,
-                                    locked,
-                                )
-                            }
-                        },
-                    )
-                    UtilityToolLockRow(
-                        icon = Icons.Rounded.NoteAlt,
-                        title = "Notes",
-                        locked = notesToolLocked != false,
-                        onLockedChange = { locked ->
-                            scope.launch {
-                                container.secureSettingRepository.putBoolean(
-                                    SecureSettingRepository.KEY_TOOL_LOCK_NOTES,
-                                    locked,
-                                )
-                            }
-                        },
-                    )
-                }
-            }
 
             GlassSettingsBlock(selected = showChangePin) {
                 Column {
@@ -631,74 +420,6 @@ fun SettingsScreen(
                 }
             }
 
-            GlassSettingsBlock(selected = biometricEnabled == true) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SettingsIconBadge(Icons.Rounded.Fingerprint, selected = biometricEnabled == true)
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Fingerprint Unlock",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            text = if (biometricEnabled == true) "Enabled for Everything tools" else "Use master PIN only",
-                            color = MutedText,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        biometricMessage?.let {
-                            Text(
-                                text = it,
-                                color = Color(0xFFFFD28F),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                    Switch(
-                        modifier = Modifier.scale(0.78f),
-                        checked = biometricEnabled == true,
-                        onCheckedChange = { enable ->
-                            biometricMessage = null
-                            if (enable) {
-                                if (!biometricAuthenticator.canAuthenticate()) {
-                                    biometricMessage = "Fingerprint is unavailable on this device"
-                                } else {
-                                    biometricAuthenticator.authenticate(
-                                        title = "Enable fingerprint",
-                                        subtitle = "Confirm once for Everything tools",
-                                        onSuccess = {
-                                            scope.launch {
-                                                container.secureSettingRepository.putBoolean(
-                                                    SecureSettingRepository.KEY_BIOMETRIC_ENABLED,
-                                                    true,
-                                                )
-                                            }
-                                        },
-                                        onError = { biometricMessage = it },
-                                    )
-                                }
-                            } else {
-                                scope.launch {
-                                    container.secureSettingRepository.putBoolean(
-                                        SecureSettingRepository.KEY_BIOMETRIC_ENABLED,
-                                        false,
-                                    )
-                                }
-                            }
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Cyan,
-                            checkedTrackColor = Cyan.copy(alpha = 0.22f),
-                            uncheckedThumbColor = SoftText,
-                            uncheckedTrackColor = Color.Transparent,
-                            uncheckedBorderColor = SoftText.copy(alpha = 0.22f),
-                        ),
-                    )
-                }
-            }
-
             GlassSettingsBlock(selected = isAdminActive) {
                 Column {
                     Row(
@@ -818,6 +539,74 @@ fun SettingsScreen(
                 }
             }
 
+            GlassSettingsBlock(selected = biometricEnabled == true) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SettingsIconBadge(Icons.Rounded.Fingerprint, selected = biometricEnabled == true)
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Fingerprint Unlock",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = if (biometricEnabled == true) "Enabled for Everything tools" else "Use master PIN only",
+                            color = MutedText,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        biometricMessage?.let {
+                            Text(
+                                text = it,
+                                color = Color(0xFFFFD28F),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    Switch(
+                        modifier = Modifier.scale(0.78f),
+                        checked = biometricEnabled == true,
+                        onCheckedChange = { enable ->
+                            biometricMessage = null
+                            if (enable) {
+                                if (!biometricAuthenticator.canAuthenticate()) {
+                                    biometricMessage = "Fingerprint is unavailable on this device"
+                                } else {
+                                    biometricAuthenticator.authenticate(
+                                        title = "Enable fingerprint",
+                                        subtitle = "Confirm once for Everything tools",
+                                        onSuccess = {
+                                            scope.launch {
+                                                container.secureSettingRepository.putBoolean(
+                                                    SecureSettingRepository.KEY_BIOMETRIC_ENABLED,
+                                                    true,
+                                                )
+                                            }
+                                        },
+                                        onError = { biometricMessage = it },
+                                    )
+                                }
+                            } else {
+                                scope.launch {
+                                    container.secureSettingRepository.putBoolean(
+                                        SecureSettingRepository.KEY_BIOMETRIC_ENABLED,
+                                        false,
+                                    )
+                                }
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Cyan,
+                            checkedTrackColor = Cyan.copy(alpha = 0.22f),
+                            uncheckedThumbColor = SoftText,
+                            uncheckedTrackColor = Color.Transparent,
+                            uncheckedBorderColor = SoftText.copy(alpha = 0.22f),
+                        ),
+                    )
+                }
+            }
+
             if (isAdminActive) {
                 Text(
                     text = "The Settings app is locked to prevent admin deactivation. " +
@@ -830,144 +619,89 @@ fun SettingsScreen(
 
             SettingsSectionTitle("Backup")
 
-            GlassSettingsBlock {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+            GlassSettingsBlock(selected = false) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenBackupRestore),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    SettingsIconBadge(Icons.Rounded.CloudUpload, selected = false)
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Backup & restore",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = "Backup password, Google Drive, and local files",
+                            color = MutedText,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    SecondaryButton(
+                        text = "Open",
+                        onClick = onOpenBackupRestore,
+                    )
+                }
+            }
+
+            GlassSettingsBlock(
+                selected = appLockToolLocked != false ||
+                    keyStoreToolLocked != false ||
+                    notesToolLocked != false,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "App Data",
+                        text = "Utility Tool Locks",
                         fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        text = "Exports an encrypted Everything backup file locally or uploads it to your Google Drive.",
+                        text = "Choose which Everything tools need the master PIN before opening.",
                         color = MutedText,
                         style = MaterialTheme.typography.bodySmall,
                     )
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PrimaryButton(
-                            text = "Export",
-                            modifier = Modifier.weight(1f),
-                            leadingIcon = {
-                                Icon(Icons.Rounded.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                            },
-                            onClick = {
-                                backupAction = BackupAction.Export
-                                backupPassword = ""
-                                backupConfirmPassword = ""
-                                backupMessage = null
-                            },
-                        )
-                        PrimaryButton(
-                            text = "Drive",
-                            modifier = Modifier.weight(1f),
-                            leadingIcon = {
-                                Icon(Icons.Rounded.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                            },
-                            onClick = {
-                                backupAction = BackupAction.ExportToDrive
-                                backupPassword = ""
-                                backupConfirmPassword = ""
-                                backupMessage = null
-                            },
-                        )
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PrimaryButton(
-                            text = "Import",
-                            modifier = Modifier.weight(1f),
-                            leadingIcon = {
-                                Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                            },
-                            onClick = {
-                                backupPassword = ""
-                                backupConfirmPassword = ""
-                                backupMessage = null
-                                pendingImportUri = null
-                                importLauncher.launch(arrayOf("*/*"))
-                            },
-                        )
-                        Spacer(Modifier.weight(1f))
-                    }
-
-                    backupMessage?.let {
-                        Text(
-                            text = it,
-                            color = if (it.contains("failed", ignoreCase = true)) Color(0xFFFFA8A8) else Cyan,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-
-                    val currentBackupAction = backupAction
-                    if (currentBackupAction != null) {
-                        BackupPasswordForm(
-                            action = currentBackupAction,
-                            password = backupPassword,
-                            confirmPassword = backupConfirmPassword,
-                            onPasswordChange = { backupPassword = it },
-                            onConfirmPasswordChange = { backupConfirmPassword = it },
-                            onCancel = { resetBackupForm() },
-                            onContinue = {
-                                when (currentBackupAction) {
-                                    BackupAction.Export -> exportLauncher.launch(defaultBackupName())
-                                    BackupAction.ExportToDrive -> {
-                                        val password = backupPassword.toCharArray()
-                                        val fileName = defaultBackupName()
-                                        resetBackupForm()
-                                        scope.launch {
-                                            backupMessage = runCatching {
-                                                val encryptedBackup = withContext(Dispatchers.Default) {
-                                                    container.backupService.exportEncrypted(password)
-                                                }
-                                                pendingDriveBackup = DriveBackupPayload(
-                                                    fileName = fileName,
-                                                    encryptedBackup = encryptedBackup,
-                                                )
-                                                "Choose a Google account to finish Drive backup"
-                                            }.getOrElse { error ->
-                                                password.fill('\u0000')
-                                                "Drive backup failed: ${error.message ?: "unknown error"}"
-                                            }
-                                            if (pendingDriveBackup != null) {
-                                                requestDriveAuthorization()
-                                            }
-                                        }
-                                    }
-                                    BackupAction.Import -> {
-                                        val uri = pendingImportUri
-                                        val password = backupPassword.toCharArray()
-                                        resetBackupForm()
-                                        if (uri == null) {
-                                            password.fill('\u0000')
-                                            backupMessage = "Select a backup file first"
-                                        } else {
-                                            scope.launch {
-                                                backupMessage = runCatching {
-                                                    val encryptedBackup = withContext(Dispatchers.IO) {
-                                                        context.contentResolver.openInputStream(uri)?.use { input ->
-                                                            input.readBytes().toString(Charsets.UTF_8)
-                                                        } ?: error("Could not open backup file")
-                                                    }
-                                                    withContext(Dispatchers.Default) {
-                                                        container.backupService.importEncrypted(encryptedBackup, password)
-                                                    }
-                                                    "Import complete"
-                                                }.getOrElse { error ->
-                                                    password.fill('\u0000')
-                                                    "Import failed: ${error.message ?: "unknown error"}"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                        )
-                    }
+                    UtilityToolLockRow(
+                        icon = Icons.Rounded.Apps,
+                        title = "App Lock",
+                        locked = appLockToolLocked != false,
+                        onLockedChange = { locked ->
+                            scope.launch {
+                                container.secureSettingRepository.putBoolean(
+                                    SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK,
+                                    locked,
+                                )
+                            }
+                        },
+                    )
+                    UtilityToolLockRow(
+                        icon = Icons.Rounded.Key,
+                        title = "Key Store",
+                        locked = keyStoreToolLocked != false,
+                        onLockedChange = { locked ->
+                            scope.launch {
+                                container.secureSettingRepository.putBoolean(
+                                    SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE,
+                                    locked,
+                                )
+                            }
+                        },
+                    )
+                    UtilityToolLockRow(
+                        icon = Icons.Rounded.NoteAlt,
+                        title = "Notes",
+                        locked = notesToolLocked != false,
+                        onLockedChange = { locked ->
+                            scope.launch {
+                                container.secureSettingRepository.putBoolean(
+                                    SecureSettingRepository.KEY_TOOL_LOCK_NOTES,
+                                    locked,
+                                )
+                            }
+                        },
+                    )
                 }
             }
 
@@ -1101,136 +835,3 @@ private fun PinTextField(
         ),
     )
 }
-
-@Composable
-private fun BackupPasswordForm(
-    action: BackupAction,
-    password: String,
-    confirmPassword: String,
-    onPasswordChange: (String) -> Unit,
-    onConfirmPasswordChange: (String) -> Unit,
-    onCancel: () -> Unit,
-    onContinue: () -> Unit,
-) {
-    val canContinue = when (action) {
-        BackupAction.Export -> password.length >= 8 && password == confirmPassword
-        BackupAction.ExportToDrive -> password.length >= 8 && password == confirmPassword
-        BackupAction.Import -> password.length >= 8
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        BackupPasswordField(
-            value = password,
-            onValueChange = onPasswordChange,
-            label = "Backup password",
-        )
-        if (action == BackupAction.Export || action == BackupAction.ExportToDrive) {
-            BackupPasswordField(
-                value = confirmPassword,
-                onValueChange = onConfirmPasswordChange,
-                label = "Confirm backup password",
-            )
-            if (confirmPassword.isNotEmpty() && password != confirmPassword) {
-                Text("Passwords do not match", color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SecondaryButton(text = "Cancel", onClick = onCancel)
-            PrimaryButton(
-                text = "Continue",
-                enabled = canContinue,
-                onClick = onContinue,
-            )
-        }
-    }
-}
-
-@Composable
-private fun BackupPasswordField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-) {
-    var visible by remember { mutableStateOf(false) }
-
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(label) },
-        singleLine = true,
-        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-        trailingIcon = {
-            IconButton(onClick = { visible = !visible }) {
-                Icon(
-                    if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                    contentDescription = if (visible) "Hide" else "Show",
-                    tint = SoftText,
-                )
-            }
-        },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        shape = RoundedCornerShape(14.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Cyan,
-            unfocusedBorderColor = Color.White.copy(alpha = 0.14f),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
-            cursorColor = Cyan,
-            focusedLabelColor = Cyan,
-            unfocusedLabelColor = MutedText,
-            focusedContainerColor = Color.White.copy(alpha = 0.08f),
-            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-        ),
-    )
-}
-
-private fun defaultBackupName(): String {
-    val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
-    return "everything-v${EverythingBackupService.PAYLOAD_VERSION}-$timestamp.everything"
-}
-
-private fun selectedBackupMessage(context: Context, uri: Uri): String {
-    val name = displayName(context, uri) ?: "Selected backup"
-    val parsed = parseBackupFileName(name)
-    return if (parsed != null) {
-        "Backup selected: v${parsed.version}, exported ${parsed.exportedAt}. Enter its password."
-    } else {
-        "Backup selected: $name. Enter its password."
-    }
-}
-
-private fun displayName(context: Context, uri: Uri): String? {
-    return context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-        ?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
-            } else {
-                null
-            }
-        }
-}
-
-private fun parseBackupFileName(name: String): BackupFileNameInfo? {
-    val match = Regex("""everything-v(\d+)-(\d{8})-(\d{6})\.everything""")
-        .matchEntire(name)
-        ?: return null
-    val date = match.groupValues[2]
-    val time = match.groupValues[3]
-    val exportedAt = "${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)} " +
-        "${time.substring(0, 2)}:${time.substring(2, 4)}:${time.substring(4, 6)}"
-    return BackupFileNameInfo(
-        version = match.groupValues[1],
-        exportedAt = exportedAt,
-    )
-}
-
-private data class BackupFileNameInfo(
-    val version: String,
-    val exportedAt: String,
-)
-
-private data class DriveBackupPayload(
-    val fileName: String,
-    val encryptedBackup: String,
-)

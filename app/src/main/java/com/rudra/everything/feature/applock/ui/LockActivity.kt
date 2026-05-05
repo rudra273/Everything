@@ -127,8 +127,8 @@ private fun LockChallengeScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var biometricEnabled by remember { mutableStateOf(false) }
 
-    fun tryBiometric() {
-        if (!biometricEnabled || !biometricAuthenticator.canAuthenticate()) return
+    fun tryBiometric(enabled: Boolean = biometricEnabled) {
+        if (!enabled || !biometricAuthenticator.canAuthenticate()) return
         biometricAuthenticator.authenticate(
             title = "Unlock $appLabel",
             subtitle = "Everything App Lock",
@@ -138,9 +138,10 @@ private fun LockChallengeScreen(
     }
 
     LaunchedEffect(Unit) {
-        biometricEnabled = settings.getBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED) == true
-        if (biometricEnabled) {
-            tryBiometric()
+        val enabled = settings.getBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED) == true
+        biometricEnabled = enabled
+        if (enabled) {
+            tryBiometric(enabled)
         }
     }
 

@@ -13,6 +13,9 @@ interface SecureSettingDao {
     @Query("SELECT * FROM secure_settings WHERE `key` = :key LIMIT 1")
     fun observe(key: String): Flow<SecureSettingEntity?>
 
+    @Query("DELETE FROM secure_settings WHERE `key` = :key")
+    suspend fun delete(key: String)
+
     @Upsert
     suspend fun upsert(entity: SecureSettingEntity)
 }

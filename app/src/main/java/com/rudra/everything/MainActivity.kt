@@ -37,6 +37,7 @@ import com.rudra.everything.feature.applock.ui.SetupCredentialScreen
 import com.rudra.everything.feature.expense.ui.ExpenseScreen
 import com.rudra.everything.feature.keystore.ui.KeyStoreScreen
 import com.rudra.everything.feature.notes.ui.SecureNotesScreen
+import com.rudra.everything.feature.settings.ui.BackupRestoreScreen
 import com.rudra.everything.feature.settings.ui.SettingsScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.catch
@@ -71,6 +72,7 @@ private enum class MainRoute {
     KeyStore,
     Notes,
     Expenses,
+    BackupRestore,
     Settings,
 }
 
@@ -216,9 +218,15 @@ private fun EverythingApp(
             onBack = { route = MainRoute.Dashboard },
         )
 
+        route == MainRoute.BackupRestore -> BackupRestoreScreen(
+            container = container,
+            onBack = { route = MainRoute.Settings },
+        )
+
         route == MainRoute.Settings -> SettingsScreen(
             container = container,
             onBack = { route = MainRoute.Dashboard },
+            onOpenBackupRestore = { route = MainRoute.BackupRestore },
         )
     }
 }
