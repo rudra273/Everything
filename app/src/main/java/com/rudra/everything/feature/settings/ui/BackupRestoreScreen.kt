@@ -5,6 +5,7 @@ import android.accounts.Account
 import android.accounts.AccountManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -98,12 +99,14 @@ import kotlinx.coroutines.withContext
 
 private const val DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
 private const val GOOGLE_ACCOUNT_TYPE = "com.google"
+private const val LOCAL_BACKUP_MIME_TYPE = "application/vnd.everything.backup+json"
 
 private enum class BackupSheet {
     Password,
     BackupList,
     ExistingBackup,
     RestorePassword,
+    LocalRestorePassword,
     Schedule,
 }
 
@@ -146,8 +149,10 @@ fun BackupRestoreScreen(
     var activeSheet by remember { mutableStateOf<BackupSheet?>(null) }
     var driveBackups by remember { mutableStateOf<List<DriveBackupFile>>(emptyList()) }
     var driveBusy by remember { mutableStateOf(false) }
+    var localBusy by remember { mutableStateOf(false) }
     var pendingDriveAction by remember { mutableStateOf<BackupDriveAuthorizationAction?>(null) }
     var pendingDriveRestore by remember { mutableStateOf<DriveBackupFile?>(null) }
+    var pendingLocalRestoreUri by remember { mutableStateOf<Uri?>(null) }
     var restorePassword by remember { mutableStateOf("") }
     var restoreError by remember { mutableStateOf<String?>(null) }
     var passwordDraft by remember { mutableStateOf("") }
@@ -230,6 +235,63 @@ fun BackupRestoreScreen(
             null,
         )
         accountPickerLauncher.launch(intent)
+    }
+
+    fun performLocalBackup(uri: Uri) {
+        scope.launch {
+            val password = container.secureSettingRepository.getString(SecureSettingRepository.KEY_BACKUP_PASSWORD)
+            if (password.isNullOrBlank()) {
+                showSnackbar("Set a backup password first")
+                return@launch
+            }
+            localBusy = true
+            val passwordChars = password.toCharArray()
+            runCatching {
+                val encryptedBackup = withContext(Dispatchers.Default) {
+                    container.backupService.exportEncrypted(passwordChars)
+                }
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { writer ->
+                        writer.write(encryptedBackup)
+                    } ?: error("Could not open backup file")
+                }
+            }.onSuccess {
+                showSnackbar("Local backup saved")
+            }.onFailure { error ->
+                showSnackbar("Local backup failed: ${error.message ?: "unknown error"}")
+            }
+            passwordChars.fill('\u0000')
+            localBusy = false
+        }
+    }
+
+    val localBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(LOCAL_BACKUP_MIME_TYPE),
+    ) { uri ->
+        uri?.let(::performLocalBackup)
+    }
+
+    val localRestoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            pendingLocalRestoreUri = uri
+            restorePassword = ""
+            restoreError = null
+            activeSheet = BackupSheet.LocalRestorePassword
+        }
+    }
+
+    fun startLocalBackup() {
+        if (!passwordSet) {
+            showSnackbar("Set a backup password first")
+            return
+        }
+        localBackupLauncher.launch(BackupFileNames.backupName())
+    }
+
+    fun startLocalRestore() {
+        localRestoreLauncher.launch(arrayOf(LOCAL_BACKUP_MIME_TYPE, "application/json", "*/*"))
     }
 
     suspend fun persistLatestBackupMetadata(latest: DriveBackupFile?) {
@@ -379,6 +441,38 @@ fun BackupRestoreScreen(
                 restoreError = "Incorrect password"
             }
             driveBusy = false
+        }
+    }
+
+    fun restoreLocalBackup() {
+        val uri = pendingLocalRestoreUri ?: return
+        if (restorePassword.length < 8) {
+            restoreError = "Incorrect password"
+            return
+        }
+        val passwordChars = restorePassword.toCharArray()
+        scope.launch {
+            localBusy = true
+            restoreError = null
+            runCatching {
+                val encryptedBackup = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
+                        reader.readText()
+                    } ?: error("Could not open backup file")
+                }
+                withContext(Dispatchers.Default) {
+                    container.backupService.importEncrypted(encryptedBackup, passwordChars)
+                }
+            }.onSuccess {
+                restorePassword = ""
+                pendingLocalRestoreUri = null
+                activeSheet = null
+                restartApp()
+            }.onFailure {
+                restoreError = "Incorrect password"
+            }
+            passwordChars.fill('\u0000')
+            localBusy = false
         }
     }
 
@@ -542,6 +636,11 @@ fun BackupRestoreScreen(
                         subtitle = driveSchedule.shortLabel(),
                         onClick = { activeSheet = BackupSheet.Schedule },
                     )
+                    ManualBackupCard(
+                        busy = localBusy,
+                        onBackup = ::startLocalBackup,
+                        onRestore = ::startLocalRestore,
+                    )
                     WarningCallout()
                 }
 
@@ -555,6 +654,7 @@ fun BackupRestoreScreen(
             onDismissRequest = {
                 activeSheet = null
                 restoreError = null
+                pendingLocalRestoreUri = null
                 clearPasswordDrafts()
             },
             title = null,
@@ -643,6 +743,16 @@ fun BackupRestoreScreen(
                             requestDriveAuthorization(BackupDriveAuthorizationAction.Restore)
                         }
                     },
+                )
+                BackupSheet.LocalRestorePassword -> LocalRestorePasswordSheet(
+                    password = restorePassword,
+                    error = restoreError,
+                    restoring = localBusy,
+                    onPasswordChange = {
+                        restorePassword = it
+                        restoreError = null
+                    },
+                    onRestore = ::restoreLocalBackup,
                 )
                 BackupSheet.Schedule -> ScheduleSheet(
                     selected = driveSchedule,
@@ -745,6 +855,41 @@ private fun BackupStatusCard(
                 enabled = !backingUp,
                 icon = null,
                 onClick = onShowAll,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ManualBackupCard(
+    busy: Boolean,
+    onBackup: () -> Unit,
+    onRestore: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp, vertical = 7.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("Manual backup", color = SoftText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text("Save or restore an encrypted local file.", color = MutedText, style = MaterialTheme.typography.bodySmall)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            BackupButton(
+                text = if (busy) "Working..." else "Backup",
+                modifier = Modifier.weight(1f),
+                enabled = !busy,
+                icon = null,
+                onClick = onBackup,
+            )
+            BackupButton(
+                text = "Restore",
+                modifier = Modifier.weight(1f),
+                enabled = !busy,
+                icon = null,
+                onClick = onRestore,
             )
         }
     }
@@ -932,6 +1077,29 @@ private fun RestorePasswordSheet(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Restore backup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(backup?.createdAtDisplay.orEmpty(), color = MutedText, style = MaterialTheme.typography.bodySmall)
+        BackupPasswordField(password, onPasswordChange, "Backup password", isError = error != null)
+        error?.let { Text(it, color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall) }
+        BackupButton(
+            text = if (restoring) "Restoring..." else "Restore",
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !restoring && password.length >= 8,
+            icon = null,
+            onClick = onRestore,
+        )
+    }
+}
+
+@Composable
+private fun LocalRestorePasswordSheet(
+    password: String,
+    error: String?,
+    restoring: Boolean,
+    onPasswordChange: (String) -> Unit,
+    onRestore: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Restore local backup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Enter the password used for this backup file.", color = MutedText, style = MaterialTheme.typography.bodySmall)
         BackupPasswordField(password, onPasswordChange, "Backup password", isError = error != null)
         error?.let { Text(it, color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall) }
         BackupButton(
