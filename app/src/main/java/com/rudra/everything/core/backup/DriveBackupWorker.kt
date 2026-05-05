@@ -67,6 +67,10 @@ class DriveBackupWorker(
                 upload.file.createdAtMillis.toString(),
             )
             settings.putString(
+                SecureSettingRepository.KEY_DRIVE_LAST_UPLOAD_AT,
+                upload.file.createdAtMillis.toString(),
+            )
+            settings.putString(
                 SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES,
                 (upload.file.sizeBytes ?: fallbackSizeBytes).toString(),
             )

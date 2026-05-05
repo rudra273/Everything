@@ -102,6 +102,7 @@ private const val GOOGLE_ACCOUNT_TYPE = "com.google"
 private enum class BackupSheet {
     Password,
     BackupList,
+    ExistingBackup,
     RestorePassword,
     Schedule,
 }
@@ -109,6 +110,7 @@ private enum class BackupSheet {
 private enum class BackupDriveAuthorizationAction {
     Refresh,
     BackupNow,
+    BackupNowConfirmed,
     Restore,
 }
 
@@ -230,6 +232,24 @@ fun BackupRestoreScreen(
         accountPickerLauncher.launch(intent)
     }
 
+    suspend fun persistLatestBackupMetadata(latest: DriveBackupFile?) {
+        if (latest == null) {
+            container.secureSettingRepository.delete(SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_AT)
+            container.secureSettingRepository.delete(SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES)
+        } else {
+            container.secureSettingRepository.putString(
+                SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_AT,
+                latest.createdAtMillis.toString(),
+            )
+            latest.sizeBytes?.let { sizeBytes ->
+                container.secureSettingRepository.putString(
+                    SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES,
+                    sizeBytes.toString(),
+                )
+            }
+        }
+    }
+
     fun refreshDriveBackups(accessToken: String) {
         scope.launch {
             driveBusy = true
@@ -239,22 +259,7 @@ fun BackupRestoreScreen(
                 }
             }.onSuccess { backups ->
                 driveBackups = backups
-                val latest = backups.firstOrNull()
-                if (latest == null) {
-                    container.secureSettingRepository.delete(SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_AT)
-                    container.secureSettingRepository.delete(SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES)
-                } else {
-                    container.secureSettingRepository.putString(
-                        SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_AT,
-                        latest.createdAtMillis.toString(),
-                    )
-                    latest.sizeBytes?.let { sizeBytes ->
-                        container.secureSettingRepository.putString(
-                            SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES,
-                            sizeBytes.toString(),
-                        )
-                    }
-                }
+                persistLatestBackupMetadata(backups.firstOrNull())
                 container.secureSettingRepository.putBoolean(SecureSettingRepository.KEY_DRIVE_NEEDS_AUTHORIZATION, false)
                 container.secureSettingRepository.delete(SecureSettingRepository.KEY_DRIVE_LAST_ERROR)
             }.onFailure { error ->
@@ -292,6 +297,10 @@ fun BackupRestoreScreen(
                     upload.file.createdAtMillis.toString(),
                 )
                 container.secureSettingRepository.putString(
+                    SecureSettingRepository.KEY_DRIVE_LAST_UPLOAD_AT,
+                    upload.file.createdAtMillis.toString(),
+                )
+                container.secureSettingRepository.putString(
                     SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES,
                     (upload.file.sizeBytes ?: fallbackSizeBytes).toString(),
                 )
@@ -305,6 +314,42 @@ fun BackupRestoreScreen(
                 showSnackbar("Backup failed: ${error.message ?: "unknown error"}")
             }
             driveBusy = false
+        }
+    }
+
+    fun prepareManualDriveBackup(accessToken: String) {
+        scope.launch {
+            driveBusy = true
+            val hasUploadedFromThisInstall = !container.secureSettingRepository
+                .getString(SecureSettingRepository.KEY_DRIVE_LAST_UPLOAD_AT)
+                .isNullOrBlank()
+            if (!hasUploadedFromThisInstall) {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        googleDriveBackupClient.listBackups(accessToken)
+                    }
+                }.onSuccess { backups ->
+                    driveBackups = backups
+                    persistLatestBackupMetadata(backups.firstOrNull())
+                    val latest = backups.firstOrNull()
+                    if (latest != null) {
+                        pendingDriveRestore = latest
+                        restorePassword = ""
+                        restoreError = null
+                        activeSheet = BackupSheet.ExistingBackup
+                        container.secureSettingRepository.putBoolean(SecureSettingRepository.KEY_DRIVE_NEEDS_AUTHORIZATION, false)
+                        container.secureSettingRepository.delete(SecureSettingRepository.KEY_DRIVE_LAST_ERROR)
+                        driveBusy = false
+                        return@launch
+                    }
+                }.onFailure { error ->
+                    driveBusy = false
+                    showSnackbar("Could not check existing backups: ${error.message ?: "unknown error"}")
+                    return@launch
+                }
+            }
+            driveBusy = false
+            performDriveBackup(accessToken)
         }
     }
 
@@ -347,7 +392,8 @@ fun BackupRestoreScreen(
         }
         when (action) {
             BackupDriveAuthorizationAction.Refresh -> refreshDriveBackups(accessToken)
-            BackupDriveAuthorizationAction.BackupNow -> performDriveBackup(accessToken)
+            BackupDriveAuthorizationAction.BackupNow -> prepareManualDriveBackup(accessToken)
+            BackupDriveAuthorizationAction.BackupNowConfirmed -> performDriveBackup(accessToken)
             BackupDriveAuthorizationAction.Restore -> restoreDriveBackup(accessToken)
         }
     }
@@ -567,6 +613,19 @@ fun BackupRestoreScreen(
                         restoreError = null
                         activeSheet = BackupSheet.RestorePassword
                     },
+                )
+                BackupSheet.ExistingBackup -> ExistingBackupPrompt(
+                    backup = pendingDriveRestore,
+                    onRestore = {
+                        restorePassword = ""
+                        restoreError = null
+                        activeSheet = BackupSheet.RestorePassword
+                    },
+                    onCreateBackup = {
+                        activeSheet = null
+                        requestDriveAuthorization(BackupDriveAuthorizationAction.BackupNowConfirmed)
+                    },
+                    onLater = { activeSheet = null },
                 )
                 BackupSheet.RestorePassword -> RestorePasswordSheet(
                     backup = pendingDriveRestore,
@@ -831,6 +890,33 @@ private fun BackupListSheet(
                 HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
             }
         }
+    }
+}
+
+@Composable
+private fun ExistingBackupPrompt(
+    backup: DriveBackupFile?,
+    onRestore: () -> Unit,
+    onCreateBackup: () -> Unit,
+    onLater: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Previous backup found", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "A Google Drive backup already exists. Restore it first if this is a fresh install, so you do not replace your old data with a new empty backup.",
+            color = SoftText.copy(alpha = 0.82f),
+            style = MaterialTheme.typography.bodySmall,
+        )
+        backup?.let {
+            Text(
+                "${it.createdAtDisplay} - ${it.sizeBytes.displaySize()}",
+                color = MutedText,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        BackupButton("Restore first", Modifier.fillMaxWidth(), backup != null, null, onRestore)
+        BackupButton("Create new backup", Modifier.fillMaxWidth(), true, null, onCreateBackup)
+        BackupButton("Later", Modifier.fillMaxWidth(), true, null, onLater)
     }
 }
 
