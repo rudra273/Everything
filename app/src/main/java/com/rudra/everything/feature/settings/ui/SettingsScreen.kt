@@ -53,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,7 +74,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.fragment.app.FragmentActivity
 import com.rudra.everything.AppContainer
 import com.rudra.everything.core.data.SecureSettingRepository
@@ -87,6 +87,7 @@ import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.SoftText
 import com.rudra.everything.core.ui.AppTheme
 import com.rudra.everything.core.ui.glassSurface
+import androidx.compose.material3.CircularProgressIndicator
 import com.rudra.everything.feature.applock.domain.SettingsPackageResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -161,18 +162,14 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     val biometricAuthenticator = remember(activity) { BiometricAuthenticator(activity) }
-    val biometricEnabled by container.secureSettingRepository
-        .observeBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED)
-        .collectAsStateWithLifecycle(initialValue = false)
-    val appLockToolLocked by container.secureSettingRepository
-        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK)
-        .collectAsStateWithLifecycle(initialValue = true)
-    val keyStoreToolLocked by container.secureSettingRepository
-        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE)
-        .collectAsStateWithLifecycle(initialValue = true)
-    val notesToolLocked by container.secureSettingRepository
-        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_NOTES)
-        .collectAsStateWithLifecycle(initialValue = true)
+    var biometricEnabled by remember { mutableStateOf<Boolean?>(null) }
+    var appLockToolLocked by remember { mutableStateOf<Boolean?>(null) }
+    var keyStoreToolLocked by remember { mutableStateOf<Boolean?>(null) }
+    var notesToolLocked by remember { mutableStateOf<Boolean?>(null) }
+    val settingsLoaded = biometricEnabled != null &&
+        appLockToolLocked != null &&
+        keyStoreToolLocked != null &&
+        notesToolLocked != null
 
     val settingsPackages = remember(context) { SettingsPackageResolver.resolve(context) }
     var isAdminActive by remember { mutableStateOf(isDeviceAdminActive(context)) }
@@ -197,6 +194,30 @@ fun SettingsScreen(
 
     val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
     var currentTheme by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name) }
+
+    LaunchedEffect(Unit) {
+        container.secureSettingRepository
+            .observeBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED)
+            .collect { enabled -> biometricEnabled = enabled ?: false }
+    }
+
+    LaunchedEffect(Unit) {
+        container.secureSettingRepository
+            .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK)
+            .collect { locked -> appLockToolLocked = locked ?: true }
+    }
+
+    LaunchedEffect(Unit) {
+        container.secureSettingRepository
+            .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE)
+            .collect { locked -> keyStoreToolLocked = locked ?: true }
+    }
+
+    LaunchedEffect(Unit) {
+        container.secureSettingRepository
+            .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_NOTES)
+            .collect { locked -> notesToolLocked = locked ?: true }
+    }
 
     fun requestUtilityLockChange(key: String, title: String, locked: Boolean) {
         if (locked) {
@@ -258,6 +279,16 @@ fun SettingsScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+            if (!settingsLoaded) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = Cyan)
+                }
+                return@Column
+            }
+
             SettingsSectionTitle("Appearance")
 
             GlassSettingsBlock(selected = true) {
@@ -667,9 +698,9 @@ fun SettingsScreen(
             }
 
             GlassSettingsBlock(
-                selected = appLockToolLocked != false ||
-                    keyStoreToolLocked != false ||
-                    notesToolLocked != false,
+                selected = appLockToolLocked == true ||
+                    keyStoreToolLocked == true ||
+                    notesToolLocked == true,
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
@@ -685,7 +716,7 @@ fun SettingsScreen(
                     UtilityToolLockRow(
                         icon = Icons.Rounded.Apps,
                         title = "App Lock",
-                        locked = appLockToolLocked != false,
+                        locked = appLockToolLocked == true,
                         onLockedChange = { locked ->
                             requestUtilityLockChange(
                                 key = SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK,
@@ -697,7 +728,7 @@ fun SettingsScreen(
                     UtilityToolLockRow(
                         icon = Icons.Rounded.Key,
                         title = "Key Store",
-                        locked = keyStoreToolLocked != false,
+                        locked = keyStoreToolLocked == true,
                         onLockedChange = { locked ->
                             requestUtilityLockChange(
                                 key = SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE,
@@ -709,7 +740,7 @@ fun SettingsScreen(
                     UtilityToolLockRow(
                         icon = Icons.Rounded.NoteAlt,
                         title = "Notes",
-                        locked = notesToolLocked != false,
+                        locked = notesToolLocked == true,
                         onLockedChange = { locked ->
                             requestUtilityLockChange(
                                 key = SecureSettingRepository.KEY_TOOL_LOCK_NOTES,

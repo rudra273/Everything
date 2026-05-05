@@ -474,10 +474,8 @@ fun AppLockScreen(
     var biometricEnabled by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var installedApps by remember { mutableStateOf<List<InstalledApp>?>(null) }
-    val toolLocked by container.secureSettingRepository
-        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK)
-        .collectAsStateWithLifecycle(initialValue = true)
-    val isToolLocked = toolLocked != false
+    var toolLocked by remember { mutableStateOf<Boolean?>(null) }
+    val isToolLocked = toolLocked
     val lockedApps by container.appLockRepository
         .observeLockedApps()
         .collectAsStateWithLifecycle(initialValue = emptyList())
@@ -499,6 +497,9 @@ fun AppLockScreen(
 
     LaunchedEffect(Unit) {
         installedApps = container.installedAppProvider.loadLaunchableApps()
+    }
+
+    LaunchedEffect(Unit) {
         val storedToolLocked = container.secureSettingRepository
             .getBoolean(SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK) != false
         val storedBiometricEnabled = container.secureSettingRepository
@@ -507,19 +508,31 @@ fun AppLockScreen(
         if (storedToolLocked && storedBiometricEnabled) {
             tryBiometricUnlock(storedBiometricEnabled)
         }
+        container.secureSettingRepository
+            .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK)
+            .collect { locked ->
+                toolLocked = locked ?: true
+            }
     }
 
     LaunchedEffect(isToolLocked) {
-        if (!isToolLocked) {
+        if (isToolLocked == false) {
             unlocked = true
             unlockPin = ""
             unlockError = null
-        } else {
-            unlocked = false
         }
     }
 
-    if (isToolLocked && !unlocked) {
+    if (isToolLocked == null) {
+        AppSurface {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Cyan)
+            }
+        }
+        return
+    }
+
+    if (isToolLocked == true && !unlocked) {
         UtilityUnlockScreen(
             title = "App Lock",
             subtitle = "Enter master PIN to manage locked apps",

@@ -120,10 +120,8 @@ fun KeyStoreScreen(
     var unlockPin by remember { mutableStateOf("") }
     var unlockError by remember { mutableStateOf<String?>(null) }
     var biometricEnabled by remember { mutableStateOf(false) }
-    val toolLocked by container.secureSettingRepository
-        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE)
-        .collectAsStateWithLifecycle(initialValue = true)
-    val isToolLocked = toolLocked != false
+    var toolLocked by remember { mutableStateOf<Boolean?>(null) }
+    val isToolLocked = toolLocked
     val entries by container.keyStoreRepository
         .observeEntries()
         .collectAsStateWithLifecycle(initialValue = null)
@@ -158,8 +156,8 @@ fun KeyStoreScreen(
         }
     }
 
-    fun tryBiometricUnlock() {
-        if (!biometricEnabled || !biometricAuthenticator.canAuthenticate()) return
+    fun tryBiometricUnlock(enabled: Boolean = biometricEnabled) {
+        if (!enabled || !biometricAuthenticator.canAuthenticate()) return
         biometricAuthenticator.authenticate(
             title = "Unlock Key Store",
             subtitle = "Everything secure storage",
@@ -175,24 +173,37 @@ fun KeyStoreScreen(
     LaunchedEffect(Unit) {
         val storedToolLocked = container.secureSettingRepository
             .getBoolean(SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE) != false
-        biometricEnabled = container.secureSettingRepository
+        val storedBiometricEnabled = container.secureSettingRepository
             .getBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED) == true
-        if (storedToolLocked && biometricEnabled) {
-            tryBiometricUnlock()
+        biometricEnabled = storedBiometricEnabled
+        if (storedToolLocked && storedBiometricEnabled) {
+            tryBiometricUnlock(storedBiometricEnabled)
         }
+        container.secureSettingRepository
+            .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE)
+            .collect { locked ->
+                toolLocked = locked ?: true
+            }
     }
 
     LaunchedEffect(isToolLocked) {
-        if (!isToolLocked) {
+        if (isToolLocked == false) {
             unlocked = true
             unlockPin = ""
             unlockError = null
-        } else {
-            unlocked = false
         }
     }
 
-    if (isToolLocked && !unlocked) {
+    if (isToolLocked == null) {
+        GlassBackground {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Cyan)
+            }
+        }
+        return
+    }
+
+    if (isToolLocked == true && !unlocked) {
         KeyStoreUnlockScreen(
             pin = unlockPin,
             error = unlockError,

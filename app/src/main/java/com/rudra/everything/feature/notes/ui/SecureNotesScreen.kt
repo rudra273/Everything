@@ -109,10 +109,8 @@ fun SecureNotesScreen(
     var unlockPin by remember { mutableStateOf("") }
     var unlockError by remember { mutableStateOf<String?>(null) }
     var biometricEnabled by remember { mutableStateOf(false) }
-    val toolLocked by container.secureSettingRepository
-        .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_NOTES)
-        .collectAsStateWithLifecycle(initialValue = true)
-    val isToolLocked = toolLocked != false
+    var toolLocked by remember { mutableStateOf<Boolean?>(null) }
+    val isToolLocked = toolLocked
     var editorState by remember { mutableStateOf<NoteEditorState?>(null) }
     var actionNote by remember { mutableStateOf<SecureNote?>(null) }
     var confirmDeleteNote by remember { mutableStateOf<SecureNote?>(null) }
@@ -122,8 +120,8 @@ fun SecureNotesScreen(
         .observeNotes()
         .collectAsStateWithLifecycle(initialValue = null)
 
-    fun tryBiometricUnlock() {
-        if (!biometricEnabled || !biometricAuthenticator.canAuthenticate()) return
+    fun tryBiometricUnlock(enabled: Boolean = biometricEnabled) {
+        if (!enabled || !biometricAuthenticator.canAuthenticate()) return
         biometricAuthenticator.authenticate(
             title = "Unlock Notes",
             subtitle = "Everything secure notes",
@@ -139,20 +137,24 @@ fun SecureNotesScreen(
     LaunchedEffect(Unit) {
         val storedToolLocked = container.secureSettingRepository
             .getBoolean(SecureSettingRepository.KEY_TOOL_LOCK_NOTES) != false
-        biometricEnabled = container.secureSettingRepository
+        val storedBiometricEnabled = container.secureSettingRepository
             .getBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED) == true
-        if (storedToolLocked && biometricEnabled) {
-            tryBiometricUnlock()
+        biometricEnabled = storedBiometricEnabled
+        if (storedToolLocked && storedBiometricEnabled) {
+            tryBiometricUnlock(storedBiometricEnabled)
         }
+        container.secureSettingRepository
+            .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_NOTES)
+            .collect { locked ->
+                toolLocked = locked ?: true
+            }
     }
 
     LaunchedEffect(isToolLocked) {
-        if (!isToolLocked) {
+        if (isToolLocked == false) {
             unlocked = true
             unlockPin = ""
             unlockError = null
-        } else {
-            unlocked = false
         }
     }
 
@@ -166,7 +168,16 @@ fun SecureNotesScreen(
         }
     }
 
-    if (isToolLocked && !unlocked) {
+    if (isToolLocked == null) {
+        GlassBackground {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Cyan)
+            }
+        }
+        return
+    }
+
+    if (isToolLocked == true && !unlocked) {
         NotesUnlockScreen(
             pin = unlockPin,
             error = unlockError,

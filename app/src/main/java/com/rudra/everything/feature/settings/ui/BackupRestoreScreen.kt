@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +45,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,9 +105,8 @@ fun BackupRestoreScreen(
     val activity = context as FragmentActivity
     val scope = rememberCoroutineScope()
     val googleDriveBackupClient = container.googleDriveBackupClient
-    val savedBackupPassword by container.secureSettingRepository
-        .observeString(SecureSettingRepository.KEY_BACKUP_PASSWORD)
-        .collectAsStateWithLifecycle(initialValue = null)
+    var savedBackupPassword by remember { mutableStateOf<String?>(null) }
+    var backupPasswordLoaded by remember { mutableStateOf(false) }
     val driveScheduleValue by container.secureSettingRepository
         .observeString(SecureSettingRepository.KEY_DRIVE_BACKUP_SCHEDULE)
         .collectAsStateWithLifecycle(initialValue = DriveBackupSchedule.Off.value)
@@ -136,6 +137,15 @@ fun BackupRestoreScreen(
     var backupPasswordDraft by remember { mutableStateOf("") }
     var backupPasswordConfirmDraft by remember { mutableStateOf("") }
     var backupPasswordMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        container.secureSettingRepository
+            .observeString(SecureSettingRepository.KEY_BACKUP_PASSWORD)
+            .collect { password ->
+                savedBackupPassword = password
+                backupPasswordLoaded = true
+            }
+    }
 
     fun clearDriveRestoreForm() {
         driveRestorePassword = ""
@@ -451,8 +461,20 @@ fun BackupRestoreScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                val backupPasswordSaved = !savedBackupPassword.isNullOrBlank()
+                if (!backupPasswordLoaded) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = Cyan)
+                    }
+                    Spacer(Modifier.height(24.dp))
+                    return@Column
+                }
 
+                val backupPasswordSaved = !savedBackupPassword.isNullOrBlank()
                 BackupPasswordSetupCard(
                     passwordSaved = backupPasswordSaved,
                     showForm = showBackupPasswordForm || !backupPasswordSaved,
