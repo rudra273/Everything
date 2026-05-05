@@ -70,10 +70,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.fragment.app.FragmentActivity
 import com.rudra.everything.AppContainer
 import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.permissions.AppLockPermissionState
 import com.rudra.everything.core.permissions.PermissionIntents
+import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.PrimaryButton
@@ -254,6 +256,18 @@ fun DashboardScreen(
     onOpenSettings: () -> Unit,
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    val normalizedSearch = searchQuery.trim()
+    fun matchesTool(title: String): Boolean = normalizedSearch.isBlank() ||
+        title.contains(normalizedSearch, ignoreCase = true)
+    val showAppLock = matchesTool("App Lock")
+    val showKeyStore = matchesTool("Key Store")
+    val showNotes = matchesTool("Notes")
+    val showFileVault = matchesTool("File Vault")
+    val showHabit = matchesTool("Habit")
+    val showExpenses = matchesTool("Expenses")
+    val showEditor = matchesTool("Editor")
+    val showSecurity = showAppLock || showKeyStore || showNotes || showFileVault
+    val showProductivity = showHabit || showExpenses || showEditor
     AppSurface {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -308,38 +322,40 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 // SECURITY TOOLS
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    Text(
-                        text = "Security",
-                        color = SoftText,
-                        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.sp,
-                        modifier = Modifier.padding(bottom = 2.dp)
-                    )
+                if (showSecurity) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            text = "Security",
+                            color = SoftText,
+                            style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.sp,
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                    }
                 }
-                item {
+                if (showAppLock) item {
                     ToolGridItem(
                         iconResId = com.rudra.everything.R.drawable.ic_app_lock,
                         title = "App Lock",
                         onClick = onOpenAppLock,
                     )
                 }
-                item {
+                if (showKeyStore) item {
                     ToolGridItem(
                         iconResId = com.rudra.everything.R.drawable.ic_key_store,
                         title = "Key Store",
                         onClick = onOpenKeyStore,
                     )
                 }
-                item {
+                if (showNotes) item {
                     ToolGridItem(
                         iconResId = com.rudra.everything.R.drawable.ic_secure_notes,
                         title = "Notes",
                         onClick = onOpenNotes,
                     )
                 }
-                item {
+                if (showFileVault) item {
                     ToolGridItem(
                         iconResId = com.rudra.everything.R.drawable.ic_file_vault,
                         title = "File Vault",
@@ -348,36 +364,48 @@ fun DashboardScreen(
                 }
 
                 // PRODUCTIVITY & TOOLS
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    Text(
-                        text = "Productivity",
-                        color = SoftText,
-                        style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.sp,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
-                    )
+                if (showProductivity) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            text = "Productivity",
+                            color = SoftText,
+                            style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.sp,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                        )
+                    }
                 }
-                item {
+                if (showHabit) item {
                     ToolGridItem(
                         iconResId = com.rudra.everything.R.drawable.ic_todo_tracker,
                         title = "Habit",
                         onClick = { /* Placeholder */ },
                     )
                 }
-                item {
+                if (showExpenses) item {
                     ToolGridItem(
                         iconResId = com.rudra.everything.R.drawable.ic_expense_tracker,
                         title = "Expenses",
                         onClick = onOpenExpenses,
                     )
                 }
-                item {
+                if (showEditor) item {
                     ToolGridItem(
                         iconResId = com.rudra.everything.R.drawable.ic_notes_editor,
                         title = "Editor",
                         onClick = { /* Placeholder */ },
                     )
+                }
+                if (!showSecurity && !showProductivity) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            text = "No tools found",
+                            color = MutedText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 24.dp),
+                        )
+                    }
                 }
             }
         }
@@ -436,10 +464,14 @@ fun AppLockScreen(
 ) {
     BackHandler { onBack() }
 
+    val context = LocalContext.current
+    val activity = context as FragmentActivity
     val scope = rememberCoroutineScope()
+    val biometricAuthenticator = remember(activity) { BiometricAuthenticator(activity) }
     var unlocked by remember { mutableStateOf(false) }
     var unlockPin by remember { mutableStateOf("") }
     var unlockError by remember { mutableStateOf<String?>(null) }
+    var biometricEnabled by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var installedApps by remember { mutableStateOf<List<InstalledApp>?>(null) }
     val toolLocked by container.secureSettingRepository
@@ -451,8 +483,30 @@ fun AppLockScreen(
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val lockedPackages = remember(lockedApps) { lockedApps.map { it.packageName }.toSet() }
 
+    fun tryBiometricUnlock(enabled: Boolean = biometricEnabled) {
+        if (!enabled || !biometricAuthenticator.canAuthenticate()) return
+        biometricAuthenticator.authenticate(
+            title = "Unlock App Lock",
+            subtitle = "Manage protected apps",
+            onSuccess = {
+                unlocked = true
+                unlockPin = ""
+                unlockError = null
+            },
+            onError = { unlockError = it },
+        )
+    }
+
     LaunchedEffect(Unit) {
         installedApps = container.installedAppProvider.loadLaunchableApps()
+        val storedToolLocked = container.secureSettingRepository
+            .getBoolean(SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK) != false
+        val storedBiometricEnabled = container.secureSettingRepository
+            .getBoolean(SecureSettingRepository.KEY_BIOMETRIC_ENABLED) == true
+        biometricEnabled = storedBiometricEnabled
+        if (storedToolLocked && storedBiometricEnabled) {
+            tryBiometricUnlock(storedBiometricEnabled)
+        }
     }
 
     LaunchedEffect(isToolLocked) {
@@ -471,6 +525,7 @@ fun AppLockScreen(
             subtitle = "Enter master PIN to manage locked apps",
             pin = unlockPin,
             error = unlockError,
+            biometricEnabled = biometricEnabled,
             onBack = onBack,
             onPinChange = {
                 unlockPin = it.filter(Char::isDigit).take(12)
@@ -491,6 +546,7 @@ fun AppLockScreen(
                     }
                 }
             },
+            onBiometric = { tryBiometricUnlock() },
         )
         return
     }
@@ -613,9 +669,11 @@ private fun UtilityUnlockScreen(
     subtitle: String,
     pin: String,
     error: String?,
+    biometricEnabled: Boolean,
     onBack: () -> Unit,
     onPinChange: (String) -> Unit,
     onUnlock: () -> Unit,
+    onBiometric: () -> Unit,
 ) {
     AppSurface {
         Column(
@@ -645,16 +703,29 @@ private fun UtilityUnlockScreen(
                 }
             }
 
-            PrimaryButton(
-                text = "Unlock",
-                enabled = pin.length >= 4,
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = {
-                    Icon(Icons.Rounded.LockOpen, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                },
-                onClick = onUnlock,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (biometricEnabled) {
+                    SecondaryButton(
+                        text = "Use fingerprint",
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = {
+                            Icon(Icons.Rounded.Fingerprint, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                        },
+                        onClick = onBiometric,
+                    )
+                }
+                PrimaryButton(
+                    text = "Unlock",
+                    enabled = pin.length >= 4,
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = {
+                        Icon(Icons.Rounded.LockOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                    },
+                    onClick = onUnlock,
+                )
+            }
         }
     }
 }

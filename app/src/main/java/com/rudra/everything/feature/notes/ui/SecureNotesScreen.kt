@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Fingerprint
@@ -57,9 +58,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -704,6 +707,7 @@ private fun NoteRow(
     onClick: () -> Unit,
     onLongPress: () -> Unit,
 ) {
+    val clipboard = LocalClipboardManager.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -728,6 +732,28 @@ private fun NoteRow(
                         color = Cyan,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                IconButton(
+                    onClick = {
+                        val copyText = buildString {
+                            if (note.title.isNotBlank()) {
+                                append(note.title)
+                            }
+                            if (note.title.isNotBlank() && note.content.isNotBlank()) {
+                                append("\n\n")
+                            }
+                            append(note.content)
+                        }
+                        clipboard.setText(AnnotatedString(copyText))
+                    },
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        Icons.Rounded.ContentCopy,
+                        contentDescription = "Copy note",
+                        tint = MutedText,
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }

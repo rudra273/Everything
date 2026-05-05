@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -213,6 +214,7 @@ fun SecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     leadingIcon: @Composable (() -> Unit)? = null,
+    textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     onClick: () -> Unit,
 ) {
     Button(
@@ -230,7 +232,7 @@ fun SecondaryButton(
         contentPadding = PaddingValues(horizontal = 20.dp),
     ) {
         leadingIcon?.invoke()
-        Text(text = text, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
+        Text(text = text, fontWeight = FontWeight.SemiBold, style = textStyle)
     }
 }
 

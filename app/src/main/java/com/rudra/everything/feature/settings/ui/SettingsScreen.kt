@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +50,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -91,6 +93,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val SETTINGS_LABEL = "Settings"
+
+private data class UtilityLockDisableRequest(
+    val key: String,
+    val title: String,
+)
 
 private fun AppTheme.displayName(): String = when (this) {
     AppTheme.SPACE_BLACK -> "space dark"
@@ -181,9 +188,27 @@ fun SettingsScreen(
     var changePinMessage by remember { mutableStateOf<String?>(null) }
     var changingPin by remember { mutableStateOf(false) }
     var biometricMessage by remember { mutableStateOf<String?>(null) }
+    var showBiometricDisableConfirm by remember { mutableStateOf(false) }
+    var biometricDisablePin by remember { mutableStateOf("") }
+    var biometricDisableError by remember { mutableStateOf<String?>(null) }
+    var pendingUtilityDisable by remember { mutableStateOf<UtilityLockDisableRequest?>(null) }
+    var utilityDisablePin by remember { mutableStateOf("") }
+    var utilityDisableError by remember { mutableStateOf<String?>(null) }
 
     val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
     var currentTheme by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name) }
+
+    fun requestUtilityLockChange(key: String, title: String, locked: Boolean) {
+        if (locked) {
+            scope.launch {
+                container.secureSettingRepository.putBoolean(key, true)
+            }
+        } else {
+            pendingUtilityDisable = UtilityLockDisableRequest(key = key, title = title)
+            utilityDisablePin = ""
+            utilityDisableError = null
+        }
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -312,6 +337,7 @@ fun SettingsScreen(
                         }
                         SecondaryButton(
                             text = if (showChangePin) "Close" else "Change",
+                            textStyle = MaterialTheme.typography.labelMedium,
                             onClick = {
                                 showChangePin = !showChangePin
                                 oldPin = ""
@@ -588,12 +614,9 @@ fun SettingsScreen(
                                     )
                                 }
                             } else {
-                                scope.launch {
-                                    container.secureSettingRepository.putBoolean(
-                                        SecureSettingRepository.KEY_BIOMETRIC_ENABLED,
-                                        false,
-                                    )
-                                }
+                                showBiometricDisableConfirm = true
+                                biometricDisablePin = ""
+                                biometricDisableError = null
                             }
                         },
                         colors = SwitchDefaults.colors(
@@ -640,10 +663,6 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    SecondaryButton(
-                        text = "Open",
-                        onClick = onOpenBackupRestore,
-                    )
                 }
             }
 
@@ -668,12 +687,11 @@ fun SettingsScreen(
                         title = "App Lock",
                         locked = appLockToolLocked != false,
                         onLockedChange = { locked ->
-                            scope.launch {
-                                container.secureSettingRepository.putBoolean(
-                                    SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK,
-                                    locked,
-                                )
-                            }
+                            requestUtilityLockChange(
+                                key = SecureSettingRepository.KEY_TOOL_LOCK_APP_LOCK,
+                                title = "App Lock",
+                                locked = locked,
+                            )
                         },
                     )
                     UtilityToolLockRow(
@@ -681,12 +699,11 @@ fun SettingsScreen(
                         title = "Key Store",
                         locked = keyStoreToolLocked != false,
                         onLockedChange = { locked ->
-                            scope.launch {
-                                container.secureSettingRepository.putBoolean(
-                                    SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE,
-                                    locked,
-                                )
-                            }
+                            requestUtilityLockChange(
+                                key = SecureSettingRepository.KEY_TOOL_LOCK_KEY_STORE,
+                                title = "Key Store",
+                                locked = locked,
+                            )
                         },
                     )
                     UtilityToolLockRow(
@@ -694,12 +711,11 @@ fun SettingsScreen(
                         title = "Notes",
                         locked = notesToolLocked != false,
                         onLockedChange = { locked ->
-                            scope.launch {
-                                container.secureSettingRepository.putBoolean(
-                                    SecureSettingRepository.KEY_TOOL_LOCK_NOTES,
-                                    locked,
-                                )
-                            }
+                            requestUtilityLockChange(
+                                key = SecureSettingRepository.KEY_TOOL_LOCK_NOTES,
+                                title = "Notes",
+                                locked = locked,
+                            )
                         },
                     )
                 }
@@ -708,6 +724,167 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
             }
         }
+    }
+
+    if (showBiometricDisableConfirm) {
+        AlertDialog(
+            onDismissRequest = {
+                showBiometricDisableConfirm = false
+                biometricDisablePin = ""
+                biometricDisableError = null
+            },
+            title = { Text("Turn off fingerprint", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Enter your master PIN to turn off fingerprint unlock.", color = MutedText)
+                    PinTextField(
+                        value = biometricDisablePin,
+                        onValueChange = {
+                            biometricDisablePin = it.filter(Char::isDigit).take(12)
+                            biometricDisableError = null
+                        },
+                        label = "Master PIN",
+                    )
+                    biometricDisableError?.let {
+                        Text(it, color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = biometricDisablePin.length >= 4,
+                    onClick = {
+                        scope.launch {
+                            val pin = biometricDisablePin
+                            val valid = withContext(Dispatchers.Default) {
+                                container.credentialRepository.verify(pin.toCharArray())
+                            }
+                            if (valid) {
+                                container.secureSettingRepository.putBoolean(
+                                    SecureSettingRepository.KEY_BIOMETRIC_ENABLED,
+                                    false,
+                                )
+                                showBiometricDisableConfirm = false
+                                biometricDisablePin = ""
+                                biometricDisableError = null
+                                biometricMessage = "Fingerprint unlock turned off"
+                            } else {
+                                biometricDisablePin = ""
+                                biometricDisableError = "Wrong PIN"
+                            }
+                        }
+                    },
+                ) {
+                    Text("Confirm", color = Cyan, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showBiometricDisableConfirm = false
+                        biometricDisablePin = ""
+                        biometricDisableError = null
+                    },
+                ) {
+                    Text("Cancel", color = MutedText)
+                }
+            },
+            containerColor = Color(0xFF101417),
+            titleContentColor = SoftText,
+            textContentColor = SoftText,
+            shape = RoundedCornerShape(14.dp),
+        )
+    }
+
+    pendingUtilityDisable?.let { request ->
+        AlertDialog(
+            onDismissRequest = {
+                pendingUtilityDisable = null
+                utilityDisablePin = ""
+                utilityDisableError = null
+            },
+            title = { Text("Turn off ${request.title} lock", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Confirm with fingerprint or master PIN.", color = MutedText)
+                    PinTextField(
+                        value = utilityDisablePin,
+                        onValueChange = {
+                            utilityDisablePin = it.filter(Char::isDigit).take(12)
+                            utilityDisableError = null
+                        },
+                        label = "Master PIN",
+                    )
+                    utilityDisableError?.let {
+                        Text(it, color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = utilityDisablePin.length >= 4,
+                    onClick = {
+                        scope.launch {
+                            val pin = utilityDisablePin
+                            val valid = withContext(Dispatchers.Default) {
+                                container.credentialRepository.verify(pin.toCharArray())
+                            }
+                            if (valid) {
+                                container.secureSettingRepository.putBoolean(request.key, false)
+                                pendingUtilityDisable = null
+                                utilityDisablePin = ""
+                                utilityDisableError = null
+                            } else {
+                                utilityDisablePin = ""
+                                utilityDisableError = "Wrong PIN"
+                            }
+                        }
+                    },
+                ) {
+                    Text("Confirm", color = Cyan, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                Row {
+                    if (biometricEnabled == true && biometricAuthenticator.canAuthenticate()) {
+                        TextButton(
+                            onClick = {
+                                biometricAuthenticator.authenticate(
+                                    title = "Confirm change",
+                                    subtitle = "Turn off ${request.title} lock",
+                                    onSuccess = {
+                                        scope.launch {
+                                            container.secureSettingRepository.putBoolean(request.key, false)
+                                            pendingUtilityDisable = null
+                                            utilityDisablePin = ""
+                                            utilityDisableError = null
+                                        }
+                                    },
+                                    onError = { utilityDisableError = it },
+                                )
+                            },
+                        ) {
+                            Icon(Icons.Rounded.Fingerprint, contentDescription = null, tint = Cyan, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Fingerprint", color = Cyan)
+                        }
+                    }
+                    TextButton(
+                        onClick = {
+                            pendingUtilityDisable = null
+                            utilityDisablePin = ""
+                            utilityDisableError = null
+                        },
+                    ) {
+                        Text("Cancel", color = MutedText)
+                    }
+                }
+            },
+            containerColor = Color(0xFF101417),
+            titleContentColor = SoftText,
+            textContentColor = SoftText,
+            shape = RoundedCornerShape(14.dp),
+        )
     }
 }
 
