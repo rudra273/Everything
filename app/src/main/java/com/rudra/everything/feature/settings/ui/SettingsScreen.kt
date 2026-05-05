@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Key
@@ -79,6 +81,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.fragment.app.FragmentActivity
 import com.rudra.everything.AppContainer
 import com.rudra.everything.core.backup.EverythingBackupService
+import com.rudra.everything.core.backup.GoogleDriveBackupClient
 import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.security.EverythingDeviceAdmin
@@ -91,6 +94,11 @@ import com.rudra.everything.core.ui.SoftText
 import com.rudra.everything.core.ui.AppTheme
 import com.rudra.everything.core.ui.glassSurface
 import com.rudra.everything.feature.applock.domain.SettingsPackageResolver
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.AuthorizationResult
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.Scope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -99,9 +107,11 @@ import java.time.format.DateTimeFormatter
 
 private const val SETTINGS_LABEL = "Settings"
 private const val BACKUP_MIME_TYPE = "application/vnd.everything.backup+json"
+private const val DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
 
 private enum class BackupAction {
     Export,
+    ExportToDrive,
     Import,
 }
 
@@ -198,15 +208,95 @@ fun SettingsScreen(
     var backupConfirmPassword by remember { mutableStateOf("") }
     var backupMessage by remember { mutableStateOf<String?>(null) }
     var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingDriveBackup by remember { mutableStateOf<DriveBackupPayload?>(null) }
 
     val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
     var currentTheme by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name) }
+    val googleDriveBackupClient = remember { GoogleDriveBackupClient() }
 
     fun resetBackupForm() {
         backupPassword = ""
         backupConfirmPassword = ""
         backupAction = null
         pendingImportUri = null
+    }
+
+    fun uploadPendingBackupToDrive(authorizationResult: AuthorizationResult) {
+        val backup = pendingDriveBackup
+        val accessToken = authorizationResult.accessToken
+        if (backup == null) {
+            backupMessage = "Drive backup failed: backup was not prepared"
+            return
+        }
+        if (accessToken.isNullOrBlank()) {
+            pendingDriveBackup = null
+            backupMessage = "Drive backup failed: Google did not return an access token"
+            return
+        }
+        scope.launch {
+            backupMessage = runCatching {
+                withContext(Dispatchers.IO) {
+                    googleDriveBackupClient.uploadBackup(
+                        accessToken = accessToken,
+                        fileName = backup.fileName,
+                        encryptedBackup = backup.encryptedBackup,
+                    )
+                }
+                "Drive backup complete: ${backup.fileName}"
+            }.getOrElse { error ->
+                "Drive backup failed: ${error.message ?: "unknown error"}"
+            }
+            pendingDriveBackup = null
+        }
+    }
+
+    val driveAuthorizationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        val data = result.data
+        if (data == null) {
+            pendingDriveBackup = null
+            backupMessage = "Drive backup canceled"
+            return@rememberLauncherForActivityResult
+        }
+        runCatching {
+            Identity.getAuthorizationClient(activity).getAuthorizationResultFromIntent(data)
+        }.onSuccess { authorizationResult ->
+            uploadPendingBackupToDrive(authorizationResult)
+        }.onFailure { error ->
+            pendingDriveBackup = null
+            val message = (error as? ApiException)?.statusCode?.let { "Google authorization failed ($it)" }
+                ?: "Google authorization failed: ${error.message ?: "unknown error"}"
+            backupMessage = message
+        }
+    }
+
+    fun requestDriveAuthorization() {
+        val request = AuthorizationRequest.builder()
+            .setRequestedScopes(listOf(Scope(DRIVE_FILE_SCOPE)))
+            .build()
+
+        Identity.getAuthorizationClient(activity)
+            .authorize(request)
+            .addOnSuccessListener { authorizationResult ->
+                if (authorizationResult.hasResolution()) {
+                    val pendingIntent = authorizationResult.pendingIntent
+                    if (pendingIntent == null) {
+                        pendingDriveBackup = null
+                        backupMessage = "Google authorization failed: no sign-in prompt was available"
+                        return@addOnSuccessListener
+                    }
+                    driveAuthorizationLauncher.launch(
+                        IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
+                    )
+                } else {
+                    uploadPendingBackupToDrive(authorizationResult)
+                }
+            }
+            .addOnFailureListener { error ->
+                pendingDriveBackup = null
+                backupMessage = "Google authorization failed: ${error.message ?: "unknown error"}"
+            }
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -750,7 +840,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        text = "Exports an encrypted Everything backup file. Store it locally or choose Drive from the file picker.",
+                        text = "Exports an encrypted Everything backup file locally or uploads it to your Google Drive.",
                         color = MutedText,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -771,6 +861,23 @@ fun SettingsScreen(
                             },
                         )
                         PrimaryButton(
+                            text = "Drive",
+                            modifier = Modifier.weight(1f),
+                            leadingIcon = {
+                                Icon(Icons.Rounded.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                            },
+                            onClick = {
+                                backupAction = BackupAction.ExportToDrive
+                                backupPassword = ""
+                                backupConfirmPassword = ""
+                                backupMessage = null
+                            },
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PrimaryButton(
                             text = "Import",
                             modifier = Modifier.weight(1f),
                             leadingIcon = {
@@ -785,6 +892,7 @@ fun SettingsScreen(
                                 importLauncher.launch(arrayOf("*/*"))
                             },
                         )
+                        Spacer(Modifier.weight(1f))
                     }
 
                     backupMessage?.let {
@@ -807,6 +915,29 @@ fun SettingsScreen(
                             onContinue = {
                                 when (currentBackupAction) {
                                     BackupAction.Export -> exportLauncher.launch(defaultBackupName())
+                                    BackupAction.ExportToDrive -> {
+                                        val password = backupPassword.toCharArray()
+                                        val fileName = defaultBackupName()
+                                        resetBackupForm()
+                                        scope.launch {
+                                            backupMessage = runCatching {
+                                                val encryptedBackup = withContext(Dispatchers.Default) {
+                                                    container.backupService.exportEncrypted(password)
+                                                }
+                                                pendingDriveBackup = DriveBackupPayload(
+                                                    fileName = fileName,
+                                                    encryptedBackup = encryptedBackup,
+                                                )
+                                                "Choose a Google account to finish Drive backup"
+                                            }.getOrElse { error ->
+                                                password.fill('\u0000')
+                                                "Drive backup failed: ${error.message ?: "unknown error"}"
+                                            }
+                                            if (pendingDriveBackup != null) {
+                                                requestDriveAuthorization()
+                                            }
+                                        }
+                                    }
                                     BackupAction.Import -> {
                                         val uri = pendingImportUri
                                         val password = backupPassword.toCharArray()
@@ -983,6 +1114,7 @@ private fun BackupPasswordForm(
 ) {
     val canContinue = when (action) {
         BackupAction.Export -> password.length >= 8 && password == confirmPassword
+        BackupAction.ExportToDrive -> password.length >= 8 && password == confirmPassword
         BackupAction.Import -> password.length >= 8
     }
 
@@ -992,7 +1124,7 @@ private fun BackupPasswordForm(
             onValueChange = onPasswordChange,
             label = "Backup password",
         )
-        if (action == BackupAction.Export) {
+        if (action == BackupAction.Export || action == BackupAction.ExportToDrive) {
             BackupPasswordField(
                 value = confirmPassword,
                 onValueChange = onConfirmPasswordChange,
@@ -1096,4 +1228,9 @@ private fun parseBackupFileName(name: String): BackupFileNameInfo? {
 private data class BackupFileNameInfo(
     val version: String,
     val exportedAt: String,
+)
+
+private data class DriveBackupPayload(
+    val fileName: String,
+    val encryptedBackup: String,
 )

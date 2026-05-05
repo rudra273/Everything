@@ -19,6 +19,12 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        resValue(
+            "string",
+            "google_oauth_client_id",
+            "95943503525-ik2amhopbtjnuirdi4vbuc70h7smc9c4.apps.googleusercontent.com"
+        )
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -37,6 +43,7 @@ android {
     }
     buildFeatures {
         compose = true
+        resValues = true
     }
 }
 
@@ -58,6 +65,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.argon2kt)
     implementation(libs.material)
+    implementation(libs.play.services.auth)
     implementation(libs.sqlcipher)
     ksp(libs.androidx.room.compiler)
     debugImplementation(libs.androidx.compose.ui.tooling)
