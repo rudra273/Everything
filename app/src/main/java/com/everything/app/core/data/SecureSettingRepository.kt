@@ -38,5 +38,8 @@ class SecureSettingRepository(
 
     companion object {
         const val KEY_BIOMETRIC_ENABLED = "app_lock.biometric_enabled"
+        const val KEY_TOOL_LOCK_APP_LOCK = "utility_lock.app_lock"
+        const val KEY_TOOL_LOCK_KEY_STORE = "utility_lock.key_store"
+        const val KEY_TOOL_LOCK_NOTES = "utility_lock.notes"
     }
 }

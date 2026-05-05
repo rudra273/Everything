@@ -61,7 +61,9 @@ import com.everything.app.core.ui.MutedText
 import com.everything.app.core.ui.Panel
 import com.everything.app.core.ui.SoftText
 import com.everything.app.core.ui.Teal
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class LockActivity : FragmentActivity() {
     private val container
@@ -144,7 +146,11 @@ private fun LockChallengeScreen(
 
     LaunchedEffect(pin) {
         if (pin.length >= 4) {
-            if (credentialRepository.verify(pin.toCharArray())) {
+            val candidate = pin
+            val valid = withContext(Dispatchers.Default) {
+                credentialRepository.verify(candidate.toCharArray())
+            }
+            if (valid) {
                 onUnlocked()
             } else {
                 error = "Wrong PIN"
