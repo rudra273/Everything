@@ -1,12 +1,17 @@
 package com.rudra.everything.feature.settings.ui
 
+import android.Manifest
+import android.accounts.Account
+import android.accounts.AccountManager
 import android.content.Context
-import android.net.Uri
-import android.provider.OpenableColumns
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,21 +34,34 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AccessTime
+import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Upload
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,13 +72,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
@@ -84,16 +103,24 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val BACKUP_MIME_TYPE = "application/vnd.everything.backup+json"
 private const val DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
+private const val GOOGLE_ACCOUNT_TYPE = "com.google"
+
+private enum class BackupSheet {
+    Password,
+    BackupList,
+    RestorePassword,
+    GoogleAccount,
+    Schedule,
+}
 
 private enum class BackupDriveAuthorizationAction {
-    Connect,
     Refresh,
     BackupNow,
     Restore,
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupRestoreScreen(
     container: AppContainer,
@@ -104,39 +131,45 @@ fun BackupRestoreScreen(
     val context = LocalContext.current
     val activity = context as FragmentActivity
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     val googleDriveBackupClient = container.googleDriveBackupClient
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     var savedBackupPassword by remember { mutableStateOf<String?>(null) }
     var backupPasswordLoaded by remember { mutableStateOf(false) }
     val driveScheduleValue by container.secureSettingRepository
         .observeString(SecureSettingRepository.KEY_DRIVE_BACKUP_SCHEDULE)
-        .collectAsStateWithLifecycle(initialValue = DriveBackupSchedule.Off.value)
+        .collectAsStateWithLifecycle(initialValue = DriveBackupSchedule.Weekly.value)
+    val selectedDriveAccount by container.secureSettingRepository
+        .observeString(SecureSettingRepository.KEY_DRIVE_ACCOUNT_EMAIL)
+        .collectAsStateWithLifecycle(initialValue = null)
     val driveLastBackupAt by container.secureSettingRepository
         .observeString(SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_AT)
         .collectAsStateWithLifecycle(initialValue = null)
-    val driveLastError by container.secureSettingRepository
-        .observeString(SecureSettingRepository.KEY_DRIVE_LAST_ERROR)
-        .collectAsStateWithLifecycle(initialValue = null)
-    val driveNeedsAuthorization by container.secureSettingRepository
-        .observeBoolean(SecureSettingRepository.KEY_DRIVE_NEEDS_AUTHORIZATION)
-        .collectAsStateWithLifecycle(initialValue = true)
 
     val driveSchedule = DriveBackupSchedule.fromValue(driveScheduleValue)
+    var activeSheet by remember { mutableStateOf<BackupSheet?>(null) }
     var driveBackups by remember { mutableStateOf<List<DriveBackupFile>>(emptyList()) }
-    var driveMessage by remember { mutableStateOf<String?>(null) }
-    var localMessage by remember { mutableStateOf<String?>(null) }
     var driveBusy by remember { mutableStateOf(false) }
-    var showExistingDriveBackupPrompt by remember { mutableStateOf(false) }
     var pendingDriveAction by remember { mutableStateOf<BackupDriveAuthorizationAction?>(null) }
     var pendingDriveRestore by remember { mutableStateOf<DriveBackupFile?>(null) }
-    var driveRestorePassword by remember { mutableStateOf("") }
-    var showDriveRestorePassword by remember { mutableStateOf(false) }
-    var localRestorePassword by remember { mutableStateOf("") }
-    var pendingLocalRestoreUri by remember { mutableStateOf<Uri?>(null) }
-    var pendingLocalBackupPassword by remember { mutableStateOf<CharArray?>(null) }
-    var showBackupPasswordForm by remember { mutableStateOf(false) }
-    var backupPasswordDraft by remember { mutableStateOf("") }
-    var backupPasswordConfirmDraft by remember { mutableStateOf("") }
-    var backupPasswordMessage by remember { mutableStateOf<String?>(null) }
+    var restorePassword by remember { mutableStateOf("") }
+    var restoreError by remember { mutableStateOf<String?>(null) }
+    var passwordDraft by remember { mutableStateOf("") }
+    var passwordConfirmDraft by remember { mutableStateOf("") }
+    var oldPasswordDraft by remember { mutableStateOf("") }
+    var passwordSheetMode by remember { mutableStateOf(if (savedBackupPassword.isNullOrBlank()) "set" else "options") }
+    var showRemovePasswordWarning by remember { mutableStateOf(false) }
+    var googleAccounts by remember { mutableStateOf<List<String>>(emptyList()) }
+    var accountDraft by remember { mutableStateOf<String?>(null) }
+
+    val passwordSet = !savedBackupPassword.isNullOrBlank()
+    val latestBackup = driveBackups.firstOrNull()
+    val lastBackupText = latestBackup?.createdAtDisplay
+        ?: driveLastBackupAt?.toLongOrNull()?.let(BackupFileNames::displayDate)
+        ?: "Never"
+    val lastBackupSizeText = latestBackup?.sizeBytes.displaySize()
+    val accountSubtitle = selectedDriveAccount ?: "Select Google account"
 
     LaunchedEffect(Unit) {
         container.secureSettingRepository
@@ -144,48 +177,85 @@ fun BackupRestoreScreen(
             .collect { password ->
                 savedBackupPassword = password
                 backupPasswordLoaded = true
+                if (password.isNullOrBlank()) {
+                    passwordSheetMode = "set"
+                }
             }
     }
 
-    fun clearDriveRestoreForm() {
-        driveRestorePassword = ""
-        showDriveRestorePassword = false
+    fun showSnackbar(message: String) {
+        scope.launch { snackbarHostState.showSnackbar(message) }
     }
 
-    fun showDriveRestoreForm(backup: DriveBackupFile?) {
-        val selectedBackup = backup ?: driveBackups.firstOrNull()
-        if (selectedBackup == null) {
-            driveMessage = "No Drive backup available"
-            return
-        }
-        if (selectedBackup.payloadVersion > EverythingBackupService.PAYLOAD_VERSION) {
-            driveMessage = "Update the app to restore this backup"
-            return
-        }
-        pendingDriveRestore = selectedBackup
-        driveRestorePassword = ""
-        showDriveRestorePassword = true
-        showExistingDriveBackupPrompt = false
+    fun clearPasswordDrafts() {
+        passwordDraft = ""
+        passwordConfirmDraft = ""
+        oldPasswordDraft = ""
+        showRemovePasswordWarning = false
     }
 
-    fun refreshDriveBackups(accessToken: String, showRestorePrompt: Boolean, successMessage: String? = null) {
+    fun restartApp() {
+        val restartIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (restartIntent != null) {
+            context.startActivity(restartIntent)
+            activity.finishAffinity()
+        }
+    }
+
+    fun loadGoogleAccounts() {
+        val accounts = runCatching {
+            AccountManager.get(context)
+                .getAccountsByType(GOOGLE_ACCOUNT_TYPE)
+                .map { it.name }
+                .distinct()
+                .sorted()
+        }.getOrElse {
+            showSnackbar("Could not read Google accounts")
+            emptyList()
+        }
+        googleAccounts = accounts
+        accountDraft = selectedDriveAccount ?: accounts.firstOrNull()
+    }
+
+    fun openGoogleAccountSheet() {
+        loadGoogleAccounts()
+        activeSheet = BackupSheet.GoogleAccount
+    }
+
+    val accountPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            openGoogleAccountSheet()
+        } else {
+            showSnackbar("Allow account access to choose a Google account")
+        }
+    }
+
+    fun requestGoogleAccountSheet() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            context.checkSelfPermission(Manifest.permission.GET_ACCOUNTS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            accountPermissionLauncher.launch(Manifest.permission.GET_ACCOUNTS)
+        } else {
+            openGoogleAccountSheet()
+        }
+    }
+
+    fun refreshDriveBackups(accessToken: String) {
         scope.launch {
             driveBusy = true
-            driveMessage = runCatching {
-                val backups = withContext(Dispatchers.IO) {
+            runCatching {
+                withContext(Dispatchers.IO) {
                     googleDriveBackupClient.listBackups(accessToken)
                 }
+            }.onSuccess { backups ->
                 driveBackups = backups
                 container.secureSettingRepository.putBoolean(SecureSettingRepository.KEY_DRIVE_NEEDS_AUTHORIZATION, false)
                 container.secureSettingRepository.delete(SecureSettingRepository.KEY_DRIVE_LAST_ERROR)
-                if (showRestorePrompt && backups.isNotEmpty()) {
-                    showExistingDriveBackupPrompt = true
-                    "Backup already available"
-                } else {
-                    successMessage ?: "Drive backups refreshed"
-                }
-            }.getOrElse { error ->
-                "Drive refresh failed: ${error.message ?: "unknown error"}"
+            }.onFailure { error ->
+                showSnackbar("Could not load backups: ${error.message ?: "unknown error"}")
             }
             driveBusy = false
         }
@@ -195,12 +265,12 @@ fun BackupRestoreScreen(
         scope.launch {
             val password = container.secureSettingRepository.getString(SecureSettingRepository.KEY_BACKUP_PASSWORD)
             if (password.isNullOrBlank()) {
-                driveMessage = "Set a backup password first"
+                showSnackbar("Set a backup password first")
                 return@launch
             }
             driveBusy = true
             val passwordChars = password.toCharArray()
-            driveMessage = runCatching {
+            runCatching {
                 val encryptedBackup = withContext(Dispatchers.Default) {
                     container.backupService.exportEncrypted(passwordChars)
                 }
@@ -220,48 +290,40 @@ fun BackupRestoreScreen(
                 driveBackups = withContext(Dispatchers.IO) {
                     googleDriveBackupClient.listBackups(accessToken)
                 }
-                val pruned = if (upload.deletedOldBackups > 0) {
-                    " Removed ${upload.deletedOldBackups} old backup(s)."
-                } else {
-                    ""
-                }
-                "Drive backup complete: ${upload.file.createdAtDisplay}.$pruned"
-            }.getOrElse { error ->
+                showSnackbar("Backup complete")
+            }.onFailure { error ->
                 passwordChars.fill('\u0000')
-                "Drive backup failed: ${error.message ?: "unknown error"}"
+                showSnackbar("Backup failed: ${error.message ?: "unknown error"}")
             }
-            showExistingDriveBackupPrompt = false
             driveBusy = false
         }
     }
 
-    fun restoreDriveBackup(accessToken: String, backup: DriveBackupFile?) {
-        val selectedBackup = backup ?: pendingDriveRestore ?: driveBackups.firstOrNull()
-        if (selectedBackup == null) {
-            driveMessage = "No Drive backup available"
-            return
-        }
+    fun restoreDriveBackup(accessToken: String) {
+        val selectedBackup = pendingDriveRestore ?: return
         if (selectedBackup.payloadVersion > EverythingBackupService.PAYLOAD_VERSION) {
-            driveMessage = "Update the app to restore this backup"
+            restoreError = "Update the app to restore this backup."
             return
         }
-        val passwordChars = driveRestorePassword.toCharArray()
-        clearDriveRestoreForm()
+        val passwordChars = restorePassword.toCharArray()
         scope.launch {
             driveBusy = true
-            driveMessage = runCatching {
+            restoreError = null
+            runCatching {
                 val encryptedBackup = withContext(Dispatchers.IO) {
                     googleDriveBackupClient.downloadBackup(accessToken, selectedBackup.id)
                 }
                 withContext(Dispatchers.Default) {
                     container.backupService.importEncrypted(encryptedBackup, passwordChars)
                 }
-                "Restore complete: ${selectedBackup.createdAtDisplay}"
-            }.getOrElse { error ->
+            }.onSuccess {
+                restorePassword = ""
+                activeSheet = null
+                restartApp()
+            }.onFailure {
                 passwordChars.fill('\u0000')
-                "Restore failed: ${error.message ?: "unknown error"}"
+                restoreError = "Incorrect password"
             }
-            pendingDriveRestore = null
             driveBusy = false
         }
     }
@@ -271,17 +333,13 @@ fun BackupRestoreScreen(
         val accessToken = authorizationResult.accessToken
         pendingDriveAction = null
         if (accessToken.isNullOrBlank()) {
-            driveMessage = "Google did not return an access token"
+            showSnackbar("Google did not return an access token")
             return
         }
-        scope.launch {
-            container.secureSettingRepository.putBoolean(SecureSettingRepository.KEY_DRIVE_NEEDS_AUTHORIZATION, false)
-        }
         when (action) {
-            BackupDriveAuthorizationAction.Connect -> refreshDriveBackups(accessToken, showRestorePrompt = true, successMessage = "Google Drive connected")
-            BackupDriveAuthorizationAction.Refresh -> refreshDriveBackups(accessToken, showRestorePrompt = false)
+            BackupDriveAuthorizationAction.Refresh -> refreshDriveBackups(accessToken)
             BackupDriveAuthorizationAction.BackupNow -> performDriveBackup(accessToken)
-            BackupDriveAuthorizationAction.Restore -> restoreDriveBackup(accessToken, pendingDriveRestore)
+            BackupDriveAuthorizationAction.Restore -> restoreDriveBackup(accessToken)
         }
     }
 
@@ -291,35 +349,35 @@ fun BackupRestoreScreen(
         val data = result.data
         if (data == null) {
             pendingDriveAction = null
-            driveMessage = "Google Drive action canceled"
+            showSnackbar("Google Drive action canceled")
             return@rememberLauncherForActivityResult
         }
         runCatching {
             Identity.getAuthorizationClient(activity).getAuthorizationResultFromIntent(data)
-        }.onSuccess { authorizationResult ->
-            handleDriveAuthorization(authorizationResult)
-        }.onFailure { error ->
-            pendingDriveAction = null
-            val message = (error as? ApiException)?.statusCode?.let { "Google authorization failed ($it)" }
-                ?: "Google authorization failed: ${error.message ?: "unknown error"}"
-            driveMessage = message
-        }
+        }.onSuccess(::handleDriveAuthorization)
+            .onFailure { error ->
+                pendingDriveAction = null
+                val message = (error as? ApiException)?.statusCode?.let { "Google authorization failed ($it)" }
+                    ?: "Google authorization failed: ${error.message ?: "unknown error"}"
+                showSnackbar(message)
+            }
     }
 
     fun requestDriveAuthorization(action: BackupDriveAuthorizationAction) {
         pendingDriveAction = action
-        val request = AuthorizationRequest.builder()
+        val builder = AuthorizationRequest.builder()
             .setRequestedScopes(listOf(Scope(DRIVE_FILE_SCOPE)))
-            .build()
-
+        selectedDriveAccount?.takeIf(String::isNotBlank)?.let { email ->
+            builder.setAccount(Account(email, GOOGLE_ACCOUNT_TYPE))
+        }
         Identity.getAuthorizationClient(activity)
-            .authorize(request)
+            .authorize(builder.build())
             .addOnSuccessListener { authorizationResult ->
                 if (authorizationResult.hasResolution()) {
                     val pendingIntent = authorizationResult.pendingIntent
                     if (pendingIntent == null) {
                         pendingDriveAction = null
-                        driveMessage = "Google authorization failed: no sign-in prompt was available"
+                        showSnackbar("Google authorization failed")
                         return@addOnSuccessListener
                     }
                     driveAuthorizationLauncher.launch(
@@ -331,124 +389,40 @@ fun BackupRestoreScreen(
             }
             .addOnFailureListener { error ->
                 pendingDriveAction = null
-                driveMessage = "Google authorization failed: ${error.message ?: "unknown error"}"
+                showSnackbar("Google authorization failed: ${error.message ?: "unknown error"}")
             }
     }
 
-    fun updateDriveSchedule(schedule: DriveBackupSchedule) {
+    fun setSchedule(schedule: DriveBackupSchedule) {
         scope.launch {
-            if (schedule != DriveBackupSchedule.Off && driveNeedsAuthorization != false) {
-                driveMessage = "Connect Google Drive before enabling automatic backup"
-                requestDriveAuthorization(BackupDriveAuthorizationAction.Connect)
-                return@launch
-            }
             container.secureSettingRepository.putString(SecureSettingRepository.KEY_DRIVE_BACKUP_SCHEDULE, schedule.value)
             container.driveBackupScheduler.applySchedule(schedule)
-            driveMessage = when (schedule) {
-                DriveBackupSchedule.Off -> "Automatic Drive backup is off"
-                DriveBackupSchedule.Daily -> "Automatic Drive backup set to daily"
-                DriveBackupSchedule.Weekly -> "Automatic Drive backup set to weekly"
-            }
-        }
-    }
-
-    val localBackupLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument(BACKUP_MIME_TYPE),
-    ) { uri: Uri? ->
-        val password = pendingLocalBackupPassword
-        pendingLocalBackupPassword = null
-        if (uri == null) {
-            password?.fill('\u0000')
-            return@rememberLauncherForActivityResult
-        }
-        if (password == null) {
-            localMessage = "Local backup failed: backup password was not loaded"
-            return@rememberLauncherForActivityResult
-        }
-        scope.launch {
-            localMessage = runCatching {
-                val encryptedBackup = withContext(Dispatchers.Default) {
-                    container.backupService.exportEncrypted(password)
-                }
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri)?.use { output ->
-                        output.write(encryptedBackup.toByteArray(Charsets.UTF_8))
-                    } ?: error("Could not open backup location")
-                }
-                "Local backup complete"
-            }.getOrElse { error ->
-                password.fill('\u0000')
-                "Local backup failed: ${error.message ?: "unknown error"}"
-            }
-        }
-    }
-
-    fun startLocalBackup() {
-        scope.launch {
-            val password = container.secureSettingRepository.getString(SecureSettingRepository.KEY_BACKUP_PASSWORD)
-            if (password.isNullOrBlank()) {
-                localMessage = "Set a backup password first"
-                return@launch
-            }
-            pendingLocalBackupPassword = password.toCharArray()
-            localBackupLauncher.launch(BackupFileNames.backupName())
-        }
-    }
-
-    val localRestoreLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri: Uri? ->
-        if (uri != null) {
-            pendingLocalRestoreUri = uri
-            localRestorePassword = ""
-            localMessage = selectedBackupMessage(context, uri)
-        }
-    }
-
-    fun restoreLocalBackup() {
-        val uri = pendingLocalRestoreUri
-        val passwordChars = localRestorePassword.toCharArray()
-        localRestorePassword = ""
-        if (uri == null) {
-            passwordChars.fill('\u0000')
-            localMessage = "Select a backup file first"
-            return
-        }
-        scope.launch {
-            localMessage = runCatching {
-                val encryptedBackup = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        input.readBytes().toString(Charsets.UTF_8)
-                    } ?: error("Could not open backup file")
-                }
-                withContext(Dispatchers.Default) {
-                    container.backupService.importEncrypted(encryptedBackup, passwordChars)
-                }
-                pendingLocalRestoreUri = null
-                "Restore complete"
-            }.getOrElse { error ->
-                passwordChars.fill('\u0000')
-                "Restore failed: ${error.message ?: "unknown error"}"
-            }
+            activeSheet = null
         }
     }
 
     GlassBackground {
         Scaffold(
             containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(WindowInsets.statusBars.asPaddingValues())
-                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .size(46.dp)
+                            .glassSurface(RoundedCornerShape(23.dp), selected = false),
+                    ) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
                     }
-                    Spacer(Modifier.width(4.dp))
-                    Text("Backup & restore", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Backup & Restore", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
             },
         ) { padding ->
@@ -459,50 +433,120 @@ fun BackupRestoreScreen(
                     .padding(horizontal = 20.dp)
                     .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                Text(
+                    "BACKUP SETTINGS",
+                    color = SoftText,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Back up app data to your Google account and restore it on a new device. Create and remember a backup password to keep your data safe.",
+                    color = SoftText.copy(alpha = 0.78f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+
                 if (!backupPasswordLoaded) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(color = Cyan)
-                    }
-                    Spacer(Modifier.height(24.dp))
-                    return@Column
+                    LoadingPanel()
+                } else {
+                    SettingsActionRow(
+                        icon = Icons.Rounded.Lock,
+                        title = "Backup password",
+                        subtitle = if (passwordSet) "Password set" else "Not set",
+                        onClick = {
+                            clearPasswordDrafts()
+                            passwordSheetMode = if (passwordSet) "options" else "set"
+                            activeSheet = BackupSheet.Password
+                        },
+                    )
+
+                    BackupStatusCard(
+                        lastBackup = lastBackupText,
+                        size = lastBackupSizeText,
+                        backingUp = driveBusy && pendingDriveAction == null,
+                        onBackupNow = {
+                            if (!passwordSet) {
+                                showSnackbar("Set a backup password first")
+                            } else {
+                                requestDriveAuthorization(BackupDriveAuthorizationAction.BackupNow)
+                            }
+                        },
+                        onShowAll = {
+                            activeSheet = BackupSheet.BackupList
+                            requestDriveAuthorization(BackupDriveAuthorizationAction.Refresh)
+                        },
+                    )
+
+                    Text(
+                        "GOOGLE ACCOUNT",
+                        color = SoftText,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    SettingsActionRow(
+                        icon = Icons.Rounded.AccountCircle,
+                        title = accountSubtitle,
+                        subtitle = null,
+                        onClick = ::requestGoogleAccountSheet,
+                    )
+                    SettingsActionRow(
+                        icon = Icons.Rounded.AccessTime,
+                        title = "Automatic backups",
+                        subtitle = driveSchedule.shortLabel(),
+                        onClick = { activeSheet = BackupSheet.Schedule },
+                    )
+                    WarningCallout()
                 }
 
-                val backupPasswordSaved = !savedBackupPassword.isNullOrBlank()
-                BackupPasswordSetupCard(
-                    passwordSaved = backupPasswordSaved,
-                    showForm = showBackupPasswordForm || !backupPasswordSaved,
-                    passwordDraft = backupPasswordDraft,
-                    confirmPasswordDraft = backupPasswordConfirmDraft,
-                    message = backupPasswordMessage,
-                    onToggleForm = {
-                        showBackupPasswordForm = !showBackupPasswordForm
-                        backupPasswordDraft = ""
-                        backupPasswordConfirmDraft = ""
-                        if (showBackupPasswordForm) {
-                            backupPasswordMessage = null
+                Spacer(Modifier.height(20.dp))
+            }
+        }
+    }
+
+    activeSheet?.let { sheet ->
+        ModalBottomSheet(
+            onDismissRequest = {
+                activeSheet = null
+                restoreError = null
+                clearPasswordDrafts()
+            },
+            sheetState = sheetState,
+            containerColor = Color(0xFF202220),
+            contentColor = SoftText,
+        ) {
+            when (sheet) {
+                BackupSheet.Password -> PasswordSheet(
+                    passwordSet = passwordSet,
+                    mode = passwordSheetMode,
+                    oldPassword = oldPasswordDraft,
+                    password = passwordDraft,
+                    confirmPassword = passwordConfirmDraft,
+                    showRemoveWarning = showRemovePasswordWarning,
+                    onModeChange = {
+                        passwordSheetMode = it
+                        clearPasswordDrafts()
+                    },
+                    onOldPasswordChange = { oldPasswordDraft = it },
+                    onPasswordChange = { passwordDraft = it },
+                    onConfirmPasswordChange = { passwordConfirmDraft = it },
+                    onRemoveClick = { showRemovePasswordWarning = true },
+                    onCancel = { activeSheet = null },
+                    onSave = {
+                        val saved = savedBackupPassword.orEmpty()
+                        when {
+                            passwordSheetMode == "change" && oldPasswordDraft != saved -> showSnackbar("Old password is incorrect")
+                            passwordDraft.length < 8 -> showSnackbar("Use at least 8 characters")
+                            passwordDraft != passwordConfirmDraft -> showSnackbar("Passwords do not match")
+                            else -> scope.launch {
+                                container.secureSettingRepository.putString(SecureSettingRepository.KEY_BACKUP_PASSWORD, passwordDraft)
+                                clearPasswordDrafts()
+                                activeSheet = null
+                                showSnackbar("Backup password saved")
+                            }
                         }
                     },
-                    onPasswordChange = {
-                        backupPasswordDraft = it
-                        backupPasswordMessage = null
-                    },
-                    onConfirmPasswordChange = {
-                        backupPasswordConfirmDraft = it
-                        backupPasswordMessage = null
-                    },
-                    onCancel = {
-                        showBackupPasswordForm = false
-                        backupPasswordDraft = ""
-                        backupPasswordConfirmDraft = ""
-                    },
-                    onRemove = {
+                    onConfirmRemove = {
                         scope.launch {
                             container.secureSettingRepository.delete(SecureSettingRepository.KEY_BACKUP_PASSWORD)
                             container.secureSettingRepository.putString(
@@ -510,466 +554,373 @@ fun BackupRestoreScreen(
                                 DriveBackupSchedule.Off.value,
                             )
                             container.driveBackupScheduler.applySchedule(DriveBackupSchedule.Off)
-                            backupPasswordDraft = ""
-                            backupPasswordConfirmDraft = ""
-                            showBackupPasswordForm = false
-                            showDriveRestorePassword = false
-                            pendingDriveRestore = null
-                            pendingLocalRestoreUri = null
-                            localRestorePassword = ""
-                            backupPasswordMessage = "Backup password removed"
-                        }
-                    },
-                    onSave = {
-                        val passwordToSave = backupPasswordDraft
-                        scope.launch {
-                            container.secureSettingRepository.putString(
-                                SecureSettingRepository.KEY_BACKUP_PASSWORD,
-                                passwordToSave,
-                            )
-                            backupPasswordDraft = ""
-                            backupPasswordConfirmDraft = ""
-                            showBackupPasswordForm = false
-                            backupPasswordMessage = "Backup password saved"
-                            driveMessage = null
-                            localMessage = null
+                            clearPasswordDrafts()
+                            activeSheet = null
+                            showSnackbar("Backup password removed")
                         }
                     },
                 )
-
-                if (backupPasswordSaved) {
-                    GoogleDriveBackupCard(
-                        driveNeedsAuthorization = driveNeedsAuthorization,
-                        driveBusy = driveBusy,
-                        driveSchedule = driveSchedule,
-                        driveLastBackupAt = driveLastBackupAt,
-                        driveLastError = driveLastError,
-                        driveMessage = driveMessage,
-                        driveBackups = driveBackups,
-                        showExistingDriveBackupPrompt = showExistingDriveBackupPrompt,
-                        showDriveRestorePassword = showDriveRestorePassword,
-                        driveRestorePassword = driveRestorePassword,
-                        pendingDriveRestore = pendingDriveRestore,
-                        onConnectOrRefresh = {
-                            driveMessage = null
-                            requestDriveAuthorization(
-                                if (driveNeedsAuthorization == false) BackupDriveAuthorizationAction.Refresh else BackupDriveAuthorizationAction.Connect,
-                            )
-                        },
-                        onBackupNow = {
-                            driveMessage = null
-                            requestDriveAuthorization(BackupDriveAuthorizationAction.BackupNow)
-                        },
-                        onScheduleChange = ::updateDriveSchedule,
-                        onRestoreSelected = ::showDriveRestoreForm,
-                        onCreateNewFromPrompt = {
-                            showExistingDriveBackupPrompt = false
-                            requestDriveAuthorization(BackupDriveAuthorizationAction.BackupNow)
-                        },
-                        onLaterFromPrompt = { showExistingDriveBackupPrompt = false },
-                        onDriveRestorePasswordChange = {
-                            driveRestorePassword = it
-                            driveMessage = null
-                        },
-                        onCancelDriveRestore = {
-                            pendingDriveRestore = null
-                            clearDriveRestoreForm()
-                        },
-                        onConfirmDriveRestore = {
+                BackupSheet.BackupList -> BackupListSheet(
+                    backups = driveBackups.take(3),
+                    loading = driveBusy,
+                    onRestore = { backup ->
+                        pendingDriveRestore = backup
+                        restorePassword = ""
+                        restoreError = null
+                        activeSheet = BackupSheet.RestorePassword
+                    },
+                )
+                BackupSheet.RestorePassword -> RestorePasswordSheet(
+                    backup = pendingDriveRestore,
+                    password = restorePassword,
+                    error = restoreError,
+                    restoring = driveBusy,
+                    onPasswordChange = {
+                        restorePassword = it
+                        restoreError = null
+                    },
+                    onRestore = {
+                        if (restorePassword.length < 8) {
+                            restoreError = "Incorrect password"
+                        } else {
                             requestDriveAuthorization(BackupDriveAuthorizationAction.Restore)
-                        },
-                    )
-
-                    LocalBackupCard(
-                        localMessage = localMessage,
-                        pendingRestoreUri = pendingLocalRestoreUri,
-                        restorePassword = localRestorePassword,
-                        onBackupToFile = {
-                            localMessage = null
-                            startLocalBackup()
-                        },
-                        onPickRestoreFile = {
-                            localMessage = null
-                            pendingLocalRestoreUri = null
-                            localRestoreLauncher.launch(arrayOf("*/*"))
-                        },
-                        onRestorePasswordChange = {
-                            localRestorePassword = it
-                            localMessage = null
-                        },
-                        onCancelRestore = {
-                            pendingLocalRestoreUri = null
-                            localRestorePassword = ""
-                        },
-                        onRestore = ::restoreLocalBackup,
-                    )
-                }
-
-                Spacer(Modifier.height(24.dp))
+                        }
+                    },
+                )
+                BackupSheet.GoogleAccount -> GoogleAccountSheet(
+                    accounts = googleAccounts,
+                    selected = accountDraft,
+                    onSelect = { accountDraft = it },
+                    onCancel = { activeSheet = null },
+                    onConfirm = {
+                        val account = accountDraft
+                        if (account.isNullOrBlank()) {
+                            showSnackbar("No Google account selected")
+                        } else {
+                            scope.launch {
+                                container.secureSettingRepository.putString(
+                                    SecureSettingRepository.KEY_DRIVE_ACCOUNT_EMAIL,
+                                    account,
+                                )
+                                activeSheet = null
+                                showSnackbar("Backup account updated")
+                            }
+                        }
+                    },
+                )
+                BackupSheet.Schedule -> ScheduleSheet(
+                    selected = driveSchedule,
+                    onSelect = ::setSchedule,
+                )
             }
+            Spacer(Modifier.height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 12.dp))
         }
     }
 }
 
 @Composable
-private fun GoogleDriveBackupCard(
-    driveNeedsAuthorization: Boolean?,
-    driveBusy: Boolean,
-    driveSchedule: DriveBackupSchedule,
-    driveLastBackupAt: String?,
-    driveLastError: String?,
-    driveMessage: String?,
-    driveBackups: List<DriveBackupFile>,
-    showExistingDriveBackupPrompt: Boolean,
-    showDriveRestorePassword: Boolean,
-    driveRestorePassword: String,
-    pendingDriveRestore: DriveBackupFile?,
-    onConnectOrRefresh: () -> Unit,
+private fun SettingsActionRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String?,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(18.dp), selected = false, tintStrength = 0.08f)
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconTile(icon)
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            subtitle?.let {
+                Text(it, color = MutedText, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Icon(Icons.Rounded.KeyboardArrowRight, contentDescription = null, tint = MutedText, modifier = Modifier.size(22.dp))
+    }
+}
+
+@Composable
+private fun BackupStatusCard(
+    lastBackup: String,
+    size: String,
+    backingUp: Boolean,
     onBackupNow: () -> Unit,
-    onScheduleChange: (DriveBackupSchedule) -> Unit,
-    onRestoreSelected: (DriveBackupFile?) -> Unit,
-    onCreateNewFromPrompt: () -> Unit,
-    onLaterFromPrompt: () -> Unit,
-    onDriveRestorePasswordChange: (String) -> Unit,
-    onCancelDriveRestore: () -> Unit,
-    onConfirmDriveRestore: () -> Unit,
+    onShowAll: () -> Unit,
 ) {
-    BackupBlock(selected = driveNeedsAuthorization == false) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Google Drive backup", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                if (driveNeedsAuthorization == false) "Connected for encrypted cloud backups" else "Connect your Google account before cloud backup",
-                color = MutedText,
-                style = MaterialTheme.typography.bodySmall,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(18.dp), selected = false, tintStrength = 0.08f)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Last backup  $lastBackup", color = SoftText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text("Size  $size", color = SoftText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            BackupButton(
+                text = if (backingUp) "Backing up..." else "Back up now",
+                modifier = Modifier.weight(1f),
+                enabled = !backingUp,
+                icon = Icons.Rounded.CloudUpload,
+                onClick = onBackupNow,
             )
-
-            if (showExistingDriveBackupPrompt && driveBackups.isNotEmpty()) {
-                Text(
-                    "Backup already available. Restore it or create a new backup.",
-                    color = Color(0xFFFFD28F),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CompactActionButton("Restore", Modifier.weight(1f), onClick = { onRestoreSelected(driveBackups.firstOrNull()) })
-                    CompactSecondaryButton("Create new", Modifier.weight(1f), onClick = onCreateNewFromPrompt)
-                }
-                CompactSecondaryButton("Later", Modifier.fillMaxWidth(), onClick = onLaterFromPrompt)
-            }
-
-            if (driveNeedsAuthorization != false) {
-                CompactActionButton(
-                    text = "Connect Google Drive",
-                    modifier = Modifier.fillMaxWidth(),
-                    icon = { Icon(Icons.Rounded.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                    onClick = onConnectOrRefresh,
-                )
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CompactActionButton("Refresh", Modifier.weight(1f), icon = {
-                        Icon(Icons.Rounded.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
-                    }, onClick = onConnectOrRefresh)
-                    CompactActionButton("Backup now", Modifier.weight(1f), enabled = !driveBusy, icon = {
-                        Icon(Icons.Rounded.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
-                    }, onClick = onBackupNow)
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DriveScheduleButton(DriveBackupSchedule.Off, driveSchedule == DriveBackupSchedule.Off) {
-                    onScheduleChange(DriveBackupSchedule.Off)
-                }
-                DriveScheduleButton(DriveBackupSchedule.Daily, driveSchedule == DriveBackupSchedule.Daily) {
-                    onScheduleChange(DriveBackupSchedule.Daily)
-                }
-                DriveScheduleButton(DriveBackupSchedule.Weekly, driveSchedule == DriveBackupSchedule.Weekly) {
-                    onScheduleChange(DriveBackupSchedule.Weekly)
-                }
-            }
-            Text(driveSchedule.statusText(), color = MutedText, style = MaterialTheme.typography.bodySmall)
-
-            driveLastBackupAt?.toLongOrNull()?.let { lastBackupMillis ->
-                Text(
-                    "Last backup: ${BackupFileNames.displayDate(lastBackupMillis)}",
-                    color = MutedText,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            if (driveBackups.isNotEmpty()) {
-                Text("Available backups", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
-                driveBackups.take(3).forEach { backup ->
-                    DriveBackupRow(backup = backup, onRestore = { onRestoreSelected(backup) })
-                }
-            }
-
-            if (showDriveRestorePassword) {
-                Text(
-                    "Enter password to restore ${pendingDriveRestore?.createdAtDisplay.orEmpty()}",
-                    color = MutedText,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                BackupPasswordField(
-                    value = driveRestorePassword,
-                    onValueChange = onDriveRestorePasswordChange,
-                    label = "Backup password",
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CompactSecondaryButton("Cancel", Modifier.weight(1f), onClick = onCancelDriveRestore)
-                    CompactActionButton(
-                        text = "Restore",
-                        modifier = Modifier.weight(1f),
-                        enabled = driveRestorePassword.length >= 8,
-                        onClick = onConfirmDriveRestore,
-                    )
-                }
-            }
-
-            driveLastError?.takeIf(String::isNotBlank)?.let {
-                Text(it, color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
-            }
-            driveMessage?.let {
-                Text(it, color = if (it.isErrorMessage()) Color(0xFFFFA8A8) else Cyan, style = MaterialTheme.typography.bodySmall)
-            }
-        }
-    }
-}
-
-@Composable
-private fun LocalBackupCard(
-    localMessage: String?,
-    pendingRestoreUri: Uri?,
-    restorePassword: String,
-    onBackupToFile: () -> Unit,
-    onPickRestoreFile: () -> Unit,
-    onRestorePasswordChange: (String) -> Unit,
-    onCancelRestore: () -> Unit,
-    onRestore: () -> Unit,
-) {
-    BackupBlock {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Local backup file", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                "Create or restore an encrypted backup file on this device.",
-                color = MutedText,
-                style = MaterialTheme.typography.bodySmall,
+            BackupButton(
+                text = "Show all",
+                modifier = Modifier.weight(1f),
+                enabled = !backingUp,
+                icon = null,
+                onClick = onShowAll,
             )
-            CompactActionButton("Backup to file", Modifier.fillMaxWidth(), icon = {
-                Icon(Icons.Rounded.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
-            }, onClick = onBackupToFile)
-            CompactActionButton("Restore from file", Modifier.fillMaxWidth(), icon = {
-                Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-            }, onClick = onPickRestoreFile)
-
-            if (pendingRestoreUri != null) {
-                BackupPasswordField(
-                    value = restorePassword,
-                    onValueChange = onRestorePasswordChange,
-                    label = "Backup password",
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CompactSecondaryButton("Cancel", Modifier.weight(1f), onClick = onCancelRestore)
-                    CompactActionButton(
-                        text = "Restore",
-                        modifier = Modifier.weight(1f),
-                        enabled = restorePassword.length >= 8,
-                        onClick = onRestore,
-                    )
-                }
-            }
-
-            localMessage?.let {
-                Text(it, color = if (it.isErrorMessage()) Color(0xFFFFA8A8) else Cyan, style = MaterialTheme.typography.bodySmall)
-            }
         }
     }
 }
 
 @Composable
-private fun BackupPasswordSetupCard(
-    passwordSaved: Boolean,
-    showForm: Boolean,
-    passwordDraft: String,
-    confirmPasswordDraft: String,
-    message: String?,
-    onToggleForm: () -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onConfirmPasswordChange: (String) -> Unit,
-    onCancel: () -> Unit,
-    onRemove: () -> Unit,
-    onSave: () -> Unit,
-) {
-    BackupBlock(selected = passwordSaved || showForm) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Backup password", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        if (passwordSaved) "Saved for encrypted backups" else "Set this before backup and restore",
-                        color = MutedText,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    message?.let {
-                        Text(
-                            it,
-                            color = if (it.contains("removed", ignoreCase = true)) Color(0xFFFFD28F) else Cyan,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-                if (passwordSaved) {
-                    CompactSecondaryButton(
-                        text = if (showForm) "Close" else "Change",
-                        onClick = onToggleForm,
-                    )
-                }
-            }
-
-            if (showForm) {
-                val passwordsMatch = passwordDraft == confirmPasswordDraft
-                val canSavePassword = passwordDraft.length >= 8 &&
-                    confirmPasswordDraft.length >= 8 &&
-                    passwordsMatch
-
-                BackupPasswordField(
-                    value = passwordDraft,
-                    onValueChange = onPasswordChange,
-                    label = "Backup password",
-                )
-                BackupPasswordField(
-                    value = confirmPasswordDraft,
-                    onValueChange = onConfirmPasswordChange,
-                    label = "Confirm backup password",
-                )
-                if (confirmPasswordDraft.isNotEmpty() && !passwordsMatch) {
-                    Text("Passwords do not match", color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (passwordSaved) {
-                        CompactSecondaryButton("Cancel", Modifier.weight(1f), onClick = onCancel)
-                        CompactSecondaryButton("Remove", Modifier.weight(1f), onClick = onRemove)
-                    }
-                    CompactActionButton(
-                        text = "Save",
-                        modifier = Modifier.weight(1f),
-                        enabled = canSavePassword,
-                        onClick = onSave,
-                    )
-                }
-            }
-        }
+private fun WarningCallout() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(18.dp), selected = false, tintStrength = 0.05f)
+            .padding(16.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(Icons.Rounded.WarningAmber, contentDescription = null, tint = Color(0xFFFFD28F), modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(
+            "All backups are fully encrypted. If you forget your backup password, there is no way to restore your data - keep it safe.",
+            color = SoftText.copy(alpha = 0.82f),
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 
 @Composable
-private fun BackupBlock(
-    selected: Boolean = false,
-    content: @Composable () -> Unit,
+private fun IconTile(icon: ImageVector) {
+    Box(
+        modifier = Modifier
+            .size(50.dp)
+            .glassSurface(RoundedCornerShape(12.dp), selected = false, tintStrength = 0.04f),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = SoftText, modifier = Modifier.size(24.dp))
+    }
+}
+
+@Composable
+private fun BackupButton(
+    text: String,
+    modifier: Modifier,
+    enabled: Boolean,
+    icon: ImageVector?,
+    onClick: () -> Unit,
 ) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(10.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.White.copy(alpha = 0.04f),
+            disabledContainerColor = Color.White.copy(alpha = 0.03f),
+            contentColor = SoftText,
+            disabledContentColor = MutedText,
+        ),
+        contentPadding = PaddingValues(horizontal = 10.dp),
+    ) {
+        icon?.let {
+            Icon(it, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(text, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun LoadingPanel() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .glassSurface(
-                shape = RoundedCornerShape(18.dp),
-                selected = selected,
-                tintStrength = 0.08f,
-                shadowElevation = 2f,
+            .height(140.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(color = Cyan)
+    }
+}
+
+@Composable
+private fun PasswordSheet(
+    passwordSet: Boolean,
+    mode: String,
+    oldPassword: String,
+    password: String,
+    confirmPassword: String,
+    showRemoveWarning: Boolean,
+    onModeChange: (String) -> Unit,
+    onOldPasswordChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onConfirmPasswordChange: (String) -> Unit,
+    onRemoveClick: () -> Unit,
+    onCancel: () -> Unit,
+    onSave: () -> Unit,
+    onConfirmRemove: () -> Unit,
+) {
+    val mismatch = confirmPassword.isNotEmpty() && password != confirmPassword
+    Column(
+        modifier = Modifier.padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Backup password", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        if (!passwordSet || mode == "set") {
+            BackupPasswordField(password, onPasswordChange, "Password", isError = mismatch)
+            BackupPasswordField(confirmPassword, onConfirmPasswordChange, "Confirm password", isError = mismatch)
+            if (mismatch) Text("Passwords do not match", color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
+            BackupButton("Set password", Modifier.fillMaxWidth(), password.length >= 8 && password == confirmPassword, Icons.Rounded.Lock, onSave)
+        } else if (mode == "change") {
+            BackupPasswordField(oldPassword, onOldPasswordChange, "Old password")
+            BackupPasswordField(password, onPasswordChange, "New password", isError = mismatch)
+            BackupPasswordField(confirmPassword, onConfirmPasswordChange, "Confirm new password", isError = mismatch)
+            if (mismatch) Text("Passwords do not match", color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
+            BackupButton("Save password", Modifier.fillMaxWidth(), password.length >= 8 && password == confirmPassword, Icons.Rounded.Lock, onSave)
+        } else {
+            BackupButton("Change password", Modifier.fillMaxWidth(), true, Icons.Rounded.Lock) { onModeChange("change") }
+            BackupButton("Remove password", Modifier.fillMaxWidth(), true, Icons.Rounded.WarningAmber, onRemoveClick)
+            BackupButton("Cancel", Modifier.fillMaxWidth(), true, null, onCancel)
+        }
+        if (showRemoveWarning) {
+            Text(
+                "Removing the password disables all backups. Existing encrypted backups still require the old password.",
+                color = Color(0xFFFFD28F),
+                style = MaterialTheme.typography.bodyMedium,
             )
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-    ) {
-        content()
+            BackupButton("Confirm remove password", Modifier.fillMaxWidth(), true, Icons.Rounded.WarningAmber, onConfirmRemove)
+        }
     }
 }
 
 @Composable
-private fun CompactActionButton(
-    text: String,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    icon: @Composable (() -> Unit)? = null,
-    onClick: () -> Unit,
+private fun BackupListSheet(
+    backups: List<DriveBackupFile>,
+    loading: Boolean,
+    onRestore: (DriveBackupFile) -> Unit,
 ) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.height(40.dp),
-        shape = RoundedCornerShape(10.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Cyan,
-            disabledContainerColor = Color.White.copy(alpha = 0.08f),
-            contentColor = Color(0xFF001716),
-            disabledContentColor = MutedText,
-        ),
-        contentPadding = PaddingValues(horizontal = 10.dp),
-    ) {
-        icon?.invoke()
-        if (icon != null) Spacer(Modifier.width(6.dp))
-        Text(text = text, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+    Column(modifier = Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Recent backups", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        if (loading) {
+            LoadingPanel()
+        } else if (backups.isEmpty()) {
+            Text("No backups found", color = MutedText)
+        } else {
+            backups.forEach { backup ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(backup.createdAtDisplay, fontWeight = FontWeight.SemiBold)
+                        Text(backup.sizeBytes.displaySize(), color = MutedText, style = MaterialTheme.typography.bodySmall)
+                    }
+                    TextButton(onClick = { onRestore(backup) }) {
+                        Icon(Icons.Rounded.Restore, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Restore", color = Cyan)
+                    }
+                }
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+            }
+        }
     }
 }
 
 @Composable
-private fun CompactSecondaryButton(
-    text: String,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
+private fun RestorePasswordSheet(
+    backup: DriveBackupFile?,
+    password: String,
+    error: String?,
+    restoring: Boolean,
+    onPasswordChange: (String) -> Unit,
+    onRestore: () -> Unit,
 ) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.height(40.dp),
-        shape = RoundedCornerShape(10.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.White.copy(alpha = 0.06f),
-            disabledContainerColor = Color.White.copy(alpha = 0.03f),
-            contentColor = Cyan,
-            disabledContentColor = MutedText,
-        ),
-        contentPadding = PaddingValues(horizontal = 10.dp),
-    ) {
-        Text(text = text, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+    Column(modifier = Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Restore backup", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(backup?.createdAtDisplay.orEmpty(), color = MutedText)
+        BackupPasswordField(password, onPasswordChange, "Backup password", isError = error != null)
+        error?.let { Text(it, color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall) }
+        BackupButton(
+            text = if (restoring) "Restoring..." else "Restore",
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !restoring && password.length >= 8,
+            icon = Icons.Rounded.Restore,
+            onClick = onRestore,
+        )
     }
 }
 
 @Composable
-private fun DriveScheduleButton(
-    schedule: DriveBackupSchedule,
+private fun GoogleAccountSheet(
+    accounts: List<String>,
+    selected: String?,
+    onSelect: (String) -> Unit,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Google account", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        if (accounts.isEmpty()) {
+            Text("No Google accounts found on this device.", color = MutedText)
+        } else {
+            accounts.forEach { account ->
+                RadioRow(account, selected == account) { onSelect(account) }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            BackupButton("Cancel", Modifier.weight(1f), true, null, onCancel)
+            BackupButton("Confirm", Modifier.weight(1f), !selected.isNullOrBlank(), null, onConfirm)
+        }
+    }
+}
+
+@Composable
+private fun ScheduleSheet(
+    selected: DriveBackupSchedule,
+    onSelect: (DriveBackupSchedule) -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Automatic backups", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        listOf(
+            DriveBackupSchedule.Daily,
+            DriveBackupSchedule.Weekly,
+            DriveBackupSchedule.Manual,
+            DriveBackupSchedule.Off,
+        ).forEach { schedule ->
+            RadioRow(schedule.shortLabel(), selected == schedule) { onSelect(schedule) }
+        }
+    }
+}
+
+@Composable
+private fun RadioRow(
+    text: String,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    Button(
-        onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (selected) Cyan.copy(alpha = 0.86f) else Color.White.copy(alpha = 0.06f),
-            contentColor = if (selected) Color(0xFF001716) else SoftText,
-        ),
-        contentPadding = PaddingValues(horizontal = 8.dp),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.height(36.dp),
-    ) {
-        Text(text = schedule.label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
-    }
-}
-
-@Composable
-private fun DriveBackupRow(
-    backup: DriveBackupFile,
-    onRestore: () -> Unit,
-) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(backup.createdAtDisplay, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
-            Text("v${backup.payloadVersion} · ${backup.source.label}", color = MutedText, style = MaterialTheme.typography.bodySmall)
-        }
-        CompactSecondaryButton(
-            text = "Restore",
-            enabled = backup.payloadVersion <= EverythingBackupService.PAYLOAD_VERSION,
-            onClick = onRestore,
-        )
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(Modifier.width(10.dp))
+        Text(text, color = SoftText, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
@@ -978,15 +929,16 @@ private fun BackupPasswordField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
+    isError: Boolean = false,
 ) {
     var visible by remember { mutableStateOf(false) }
-
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
         label = { Text(label) },
         singleLine = true,
+        isError = isError,
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = {
             IconButton(onClick = { visible = !visible }) {
@@ -1002,6 +954,7 @@ private fun BackupPasswordField(
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Cyan,
             unfocusedBorderColor = Color.White.copy(alpha = 0.14f),
+            errorBorderColor = Color(0xFFFFA8A8),
             focusedTextColor = Color.White,
             unfocusedTextColor = Color.White,
             cursorColor = Cyan,
@@ -1013,37 +966,24 @@ private fun BackupPasswordField(
     )
 }
 
-private fun DriveBackupSchedule.statusText(): String = when (this) {
-    DriveBackupSchedule.Off -> "Automatic backup is off"
-    DriveBackupSchedule.Daily -> "Automatic backup runs daily"
-    DriveBackupSchedule.Weekly -> "Automatic backup runs weekly"
+private fun DriveBackupSchedule.shortLabel(): String = when (this) {
+    DriveBackupSchedule.Daily -> "Daily"
+    DriveBackupSchedule.Weekly -> "Weekly"
+    DriveBackupSchedule.Manual -> "Only when I tap 'Back up now'"
+    DriveBackupSchedule.Off -> "Off"
 }
 
-private fun String.isErrorMessage(): Boolean {
-    return contains("failed", ignoreCase = true) ||
-        contains("error", ignoreCase = true) ||
-        contains("reconnect", ignoreCase = true) ||
-        contains("update the app", ignoreCase = true) ||
-        contains("set a backup password", ignoreCase = true)
+private fun Long?.displaySize(): String {
+    val bytes = this ?: return "-"
+    if (bytes < 1024L) return "$bytes B"
+    val kb = bytes / 1024.0
+    if (kb < 1024.0) return "${kb.formatOne()} KB"
+    val mb = kb / 1024.0
+    if (mb < 1024.0) return "${mb.formatOne()} MB"
+    return "${(mb / 1024.0).formatOne()} GB"
 }
 
-private fun selectedBackupMessage(context: Context, uri: Uri): String {
-    val name = displayName(context, uri) ?: "Selected backup"
-    val parsed = BackupFileNames.parse(name)
-    return if (parsed != null) {
-        "Backup selected: v${parsed.version}, exported ${parsed.exportedAt}. Enter its password."
-    } else {
-        "Backup selected: $name. Enter its password."
-    }
-}
-
-private fun displayName(context: Context, uri: Uri): String? {
-    return context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-        ?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
-            } else {
-                null
-            }
-        }
+private fun Double.formatOne(): String {
+    val rounded = kotlin.math.round(this * 10.0) / 10.0
+    return if (rounded % 1.0 == 0.0) rounded.toInt().toString() else rounded.toString()
 }

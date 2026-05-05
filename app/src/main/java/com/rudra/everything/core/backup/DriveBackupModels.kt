@@ -14,11 +14,12 @@ enum class DriveBackupSource(val value: String, val label: String) {
 enum class DriveBackupSchedule(val value: String, val label: String) {
     Off("off", "Off"),
     Daily("daily", "Daily"),
-    Weekly("weekly", "Weekly");
+    Weekly("weekly", "Weekly"),
+    Manual("manual", "Only when I tap 'Back up now'");
 
     companion object {
         fun fromValue(value: String?): DriveBackupSchedule {
-            return entries.firstOrNull { it.value == value } ?: Off
+            return entries.firstOrNull { it.value == value } ?: Weekly
         }
     }
 }

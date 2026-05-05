@@ -13,7 +13,7 @@ class DriveBackupScheduler(
 ) {
     fun applySchedule(schedule: DriveBackupSchedule) {
         val workManager = WorkManager.getInstance(context)
-        if (schedule == DriveBackupSchedule.Off) {
+        if (schedule == DriveBackupSchedule.Off || schedule == DriveBackupSchedule.Manual) {
             workManager.cancelUniqueWork(UNIQUE_WORK_NAME)
             return
         }
@@ -21,7 +21,8 @@ class DriveBackupScheduler(
         val days = when (schedule) {
             DriveBackupSchedule.Daily -> 1L
             DriveBackupSchedule.Weekly -> 7L
-            DriveBackupSchedule.Off -> return
+            DriveBackupSchedule.Off,
+            DriveBackupSchedule.Manual -> return
         }
         val request = PeriodicWorkRequestBuilder<DriveBackupWorker>(days, TimeUnit.DAYS)
             .setConstraints(

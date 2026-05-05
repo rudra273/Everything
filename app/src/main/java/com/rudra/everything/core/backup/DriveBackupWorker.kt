@@ -20,7 +20,7 @@ class DriveBackupWorker(
         val container = AppContainer(applicationContext)
         val settings = container.secureSettingRepository
         val schedule = DriveBackupSchedule.fromValue(settings.getString(SecureSettingRepository.KEY_DRIVE_BACKUP_SCHEDULE))
-        if (schedule == DriveBackupSchedule.Off) {
+        if (schedule == DriveBackupSchedule.Off || schedule == DriveBackupSchedule.Manual) {
             return@withContext Result.success()
         }
 
