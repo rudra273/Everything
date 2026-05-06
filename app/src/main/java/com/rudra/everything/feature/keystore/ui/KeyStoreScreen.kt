@@ -313,7 +313,7 @@ fun KeyStoreScreen(
                             ) {
                                 Text(
                                     text = lbl,
-                                    color = if (isSelected) Color(0xFF001716) else SoftText,
+                                    color = SoftText,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.SemiBold
                                 )

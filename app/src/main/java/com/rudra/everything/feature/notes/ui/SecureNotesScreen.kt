@@ -272,7 +272,7 @@ fun SecureNotesScreen(
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
                     }
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Secure Notes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("Notes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text("${filteredNotes.size} of ${notes?.size ?: 0} notes", color = Cyan, style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -374,7 +374,7 @@ private fun NotesUnlockScreen(
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("Secure Notes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Notes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("Unlock private notes", color = Cyan, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -451,18 +451,6 @@ private fun NoteEditorPage(
                 Icon(Icons.Rounded.Label, contentDescription = null, tint = Cyan, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Add label", color = Cyan, fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        if (selectedLabels.isNotEmpty()) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                items(selectedLabels.sorted()) { label ->
-                    LabelChip(
-                        label = label,
-                        selected = true,
-                        onClick = { selectedLabels = selectedLabels - label },
-                    )
-                }
             }
         }
 
@@ -708,7 +696,7 @@ private fun LabelChip(
             .padding(horizontal = 12.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = if (selected) Color(0xFF001716) else SoftText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+        Text(label, color = SoftText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
     }
 }
 
