@@ -78,6 +78,7 @@ import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.DeepBackground
+import com.rudra.everything.core.ui.GlassFilterButton
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.PanelAlt
@@ -688,16 +689,7 @@ private fun LabelChip(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .glassSurface(RoundedCornerShape(12.dp), selected = selected, tintStrength = 0.08f)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, color = SoftText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-    }
+    GlassFilterButton(text = label, selected = selected, onClick = onClick)
 }
 
 @Composable

@@ -75,6 +75,7 @@ import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.DangerRed
 import com.rudra.everything.core.ui.DangerRedMuted
 import com.rudra.everything.core.ui.GlassBackground
+import com.rudra.everything.core.ui.GlassFilterButton
 import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.PanelAlt
 import com.rudra.everything.core.ui.PrimaryButton
@@ -869,20 +870,7 @@ private fun DateFilterChip(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .glassSurface(RoundedCornerShape(12.dp), selected = selected, tintStrength = 0.08f)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = text,
-            color = SoftText,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-    }
+    GlassFilterButton(text = text, selected = selected, onClick = onClick)
 }
 
 @Composable

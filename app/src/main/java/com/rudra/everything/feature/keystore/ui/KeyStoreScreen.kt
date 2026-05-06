@@ -80,6 +80,7 @@ import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
+import com.rudra.everything.core.ui.GlassFilterButton
 import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.PanelAlt
 import com.rudra.everything.core.ui.SoftText
@@ -303,21 +304,11 @@ fun KeyStoreScreen(
                     ) {
                         items(uniqueLabels) { lbl ->
                             val isSelected = selectedLabel == lbl
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .glassSurface(RoundedCornerShape(12.dp), selected = isSelected, tintStrength = 0.08f)
-                                    .clickable { selectedLabel = if (isSelected) null else lbl }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = lbl,
-                                    color = SoftText,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
+                            GlassFilterButton(
+                                text = lbl,
+                                selected = isSelected,
+                                onClick = { selectedLabel = if (isSelected) null else lbl },
+                            )
                         }
                     }
                 }
