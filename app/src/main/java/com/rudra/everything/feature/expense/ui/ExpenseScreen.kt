@@ -41,6 +41,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -102,6 +104,16 @@ private enum class ExpenseChartMode {
     Weekly,
     Monthly,
 }
+
+private const val DEFAULT_CATEGORY = "General"
+private val EXPENSE_CATEGORIES = listOf(
+    DEFAULT_CATEGORY,
+    "Food",
+    "Transport",
+    "Shopping",
+    "Bills",
+    "Health",
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -229,7 +241,7 @@ fun ExpenseScreen(
                     item {
                         ExpenseFormCard(
                             title = "Add Daily Expense",
-                            defaultCategory = "General",
+                            defaultCategory = DEFAULT_CATEGORY,
                             onCancel = { addDailyOpen = false },
                             onSave = { title, category, amount, note, expenseDate ->
                                 scope.launch {
@@ -546,7 +558,7 @@ private fun ExpenseFormCard(
             label = "Amount",
             keyboardType = KeyboardType.Decimal,
         )
-        ExpenseTextField(value = category, onValueChange = { category = it }, label = "Category")
+        CategoryPicker(category = category, onCategoryChange = { category = it })
         ExpenseTextField(value = note, onValueChange = { note = it }, label = "Note")
         if (expenseDate.isNotBlank() && !dateValid) {
             Text("Use YYYY-MM-DD date", color = DangerRed, style = MaterialTheme.typography.bodySmall)
@@ -563,7 +575,7 @@ private fun BillFormCard(
 ) {
     var name by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("Bills") }
+    var category by remember { mutableStateOf("General") }
     var startMonth by remember(selectedMonth) { mutableStateOf(selectedMonth) }
     var endMonth by remember(selectedMonth) { mutableStateOf(selectedMonth.plusMonths(6)) }
     var noEndMonth by remember { mutableStateOf(false) }
@@ -581,7 +593,7 @@ private fun BillFormCard(
             label = "Monthly amount",
             keyboardType = KeyboardType.Decimal,
         )
-        ExpenseTextField(value = category, onValueChange = { category = it }, label = "Category")
+        CategoryPicker(category = category, onCategoryChange = { category = it })
         ExpenseTextField(
             value = dueDay,
             onValueChange = { dueDay = it.filter(Char::isDigit).take(2) },
@@ -749,6 +761,43 @@ private fun PickerField(
             Icon(icon, contentDescription = null, tint = Cyan, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(value, color = SoftText, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun CategoryPicker(
+    category: String,
+    onCategoryChange: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        PickerField(
+            label = "Category",
+            value = category.ifBlank { DEFAULT_CATEGORY },
+            icon = Icons.Rounded.ReceiptLong,
+            onClick = { expanded = true },
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(PanelAlt),
+        ) {
+            EXPENSE_CATEGORIES.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            option,
+                            color = SoftText,
+                            fontWeight = if (option == category) FontWeight.Bold else FontWeight.Normal,
+                        )
+                    },
+                    onClick = {
+                        onCategoryChange(option)
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }
@@ -1208,7 +1257,7 @@ private fun UpdateExpenseDialog(
                     label = "Amount",
                     keyboardType = KeyboardType.Decimal,
                 )
-                ExpenseTextField(value = category, onValueChange = { category = it }, label = "Category")
+                CategoryPicker(category = category, onCategoryChange = { category = it })
                 ExpenseTextField(value = note, onValueChange = { note = it }, label = "Note")
                 if (expenseDate.isNotBlank() && !dateValid) {
                     Text("Use YYYY-MM-DD date", color = DangerRed, style = MaterialTheme.typography.bodySmall)
@@ -1307,7 +1356,7 @@ private fun BillScheduleDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ExpenseTextField(value = name, onValueChange = { name = it }, label = "Bill name")
-                ExpenseTextField(value = category, onValueChange = { category = it }, label = "Category")
+                CategoryPicker(category = category, onCategoryChange = { category = it })
                 ExpenseTextField(
                     value = dueDay,
                     onValueChange = { dueDay = it.filter(Char::isDigit).take(2) },
