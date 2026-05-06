@@ -26,7 +26,7 @@ class AppMonitorService : Service() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private lateinit var detector: ForegroundAppDetector
     private lateinit var overlayController: LockOverlayController
-    private lateinit var settingsPackages: Set<String>
+    private lateinit var settingsPackage: String
     private var lockedPackages = emptySet<String>()
     private var biometricEnabled = false
     private var lastForegroundPackage: String? = null
@@ -35,7 +35,7 @@ class AppMonitorService : Service() {
     override fun onCreate() {
         super.onCreate()
         detector = ForegroundAppDetector(this)
-        settingsPackages = SettingsPackageResolver.resolve(this)
+        settingsPackage = SettingsPackageResolver.resolve(this)
         overlayController = LockOverlayController(
             context = this,
             credentialRepository = (application as EverythingApplication).container.credentialRepository,
@@ -125,7 +125,7 @@ class AppMonitorService : Service() {
             mainHandler.post { launchActivityLockScreen(packageName) }
             return
         }
-        if (packageName !in settingsPackages && Settings.canDrawOverlays(this)) {
+        if (packageName != settingsPackage && Settings.canDrawOverlays(this)) {
             mainHandler.post {
                 overlayController.show(
                     packageName = packageName,

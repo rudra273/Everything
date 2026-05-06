@@ -137,16 +137,24 @@ private fun removeDeviceAdmin(context: Context) {
 
 private suspend fun setSettingsLocked(
     container: AppContainer,
-    settingsPackages: Iterable<String>,
+    settingsPackage: String,
     locked: Boolean,
 ) {
-    settingsPackages.forEach { packageName ->
-        container.appLockRepository.setLocked(
-            packageName = packageName,
-            label = SETTINGS_LABEL,
-            locked = locked,
-        )
-    }
+    container.appLockRepository.getLockedApps()
+        .filter { app -> app.label == SETTINGS_LABEL && app.packageName != settingsPackage }
+        .forEach { app ->
+            container.appLockRepository.setLocked(
+                packageName = app.packageName,
+                label = app.label,
+                locked = false,
+            )
+        }
+
+    container.appLockRepository.setLocked(
+        packageName = settingsPackage,
+        label = SETTINGS_LABEL,
+        locked = locked,
+    )
 }
 
 @Composable
@@ -171,7 +179,7 @@ fun SettingsScreen(
         keyStoreToolLocked != null &&
         notesToolLocked != null
 
-    val settingsPackages = remember(context) { SettingsPackageResolver.resolve(context) }
+    val settingsPackage = remember(context) { SettingsPackageResolver.resolve(context) }
     var isAdminActive by remember { mutableStateOf(isDeviceAdminActive(context)) }
     var showDisablePin by remember { mutableStateOf(false) }
     var disablePin by remember { mutableStateOf("") }
@@ -238,7 +246,7 @@ fun SettingsScreen(
                 isAdminActive = isDeviceAdminActive(context)
                 if (!wasAdmin && isAdminActive) {
                     scope.launch {
-                        setSettingsLocked(container, settingsPackages, locked = true)
+                        setSettingsLocked(container, settingsPackage, locked = true)
                     }
                 }
             }
@@ -578,7 +586,7 @@ fun SettingsScreen(
                                                 container.credentialRepository.verify(pin.toCharArray())
                                             }
                                             if (valid) {
-                                                setSettingsLocked(container, settingsPackages, locked = false)
+                                                setSettingsLocked(container, settingsPackage, locked = false)
                                                 removeDeviceAdmin(context)
                                                 isAdminActive = false
                                                 showDisablePin = false

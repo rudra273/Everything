@@ -5,24 +5,15 @@ import android.content.Intent
 import android.provider.Settings
 
 object SettingsPackageResolver {
-    private val knownSettingsPackages = setOf(
-        "com.android.settings",
-    )
+    private const val FALLBACK_SETTINGS_PACKAGE = "com.android.settings"
 
-    fun resolve(context: Context): Set<String> {
+    fun resolve(context: Context): String {
         val packageManager = context.packageManager
         val intent = Intent(Settings.ACTION_SETTINGS)
-        val packages = knownSettingsPackages.toMutableSet()
 
-        packageManager.resolveActivity(intent, 0)
+        return packageManager.resolveActivity(intent, 0)
             ?.activityInfo
             ?.packageName
-            ?.let(packages::add)
-
-        packageManager.queryIntentActivities(intent, 0)
-            .mapNotNull { it.activityInfo?.packageName }
-            .forEach(packages::add)
-
-        return packages
+            ?: FALLBACK_SETTINGS_PACKAGE
     }
 }
