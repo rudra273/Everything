@@ -2,8 +2,14 @@ package com.rudra.everything.feature.applock.ui
 
 import android.content.ActivityNotFoundException
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -656,12 +662,56 @@ fun AppLockScreen(
                     CircularProgressIndicator(color = Cyan)
                 }
             } else {
-                LazyColumn(
+                val onCheckedChange: (InstalledApp, Boolean) -> Unit = { app, checked ->
+                    scope.launch {
+                        container.appLockRepository.setLocked(
+                            packageName = app.packageName,
+                            label = app.label,
+                            locked = checked,
+                        )
+                        onSelectionChanged()
+                    }
+                }
+
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
                         .padding(horizontal = 20.dp)
-                        .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+                        .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = Cyan.copy(alpha = 0.85f)) },
+                        placeholder = { Text("Search apps") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Cyan.copy(alpha = 0.8f),
+                            unfocusedBorderColor = SoftText.copy(alpha = 0.2f),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Cyan,
+                            focusedPlaceholderColor = MutedText,
+                            unfocusedPlaceholderColor = MutedText,
+                            focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                        ),
+                    )
+                    AppLockTabSelector(
+                        selectedTab = selectedTab,
+                        unlockedCount = unlockedApps.size,
+                        lockedCount = lockedVisibleApps.size,
+                        onTabSelected = { selectedTab = it },
+                    )
+                    AnimatedContent(
+                        targetState = selectedTab,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
                         .pointerInput(selectedTab) {
                             detectHorizontalDragGestures(
                                 onDragEnd = {
@@ -677,90 +727,63 @@ fun AppLockScreen(
                                 },
                             )
                         },
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedTextField(
-                                value = query,
-                                onValueChange = { query = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = Cyan.copy(alpha = 0.85f)) },
-                                placeholder = { Text("Search apps") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(18.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Cyan.copy(alpha = 0.8f),
-                                    unfocusedBorderColor = SoftText.copy(alpha = 0.2f),
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    cursorColor = Cyan,
-                                    focusedPlaceholderColor = MutedText,
-                                    unfocusedPlaceholderColor = MutedText,
-                                    focusedContainerColor = Color.White.copy(alpha = 0.08f),
-                                    unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-                                ),
-                            )
-                            AppLockTabSelector(
-                                selectedTab = selectedTab,
-                                unlockedCount = unlockedApps.size,
-                                lockedCount = lockedVisibleApps.size,
-                                onTabSelected = { selectedTab = it },
-                            )
-                        }
-                    }
-
-                    val onCheckedChange: (InstalledApp, Boolean) -> Unit = { app, checked ->
-                        scope.launch {
-                            container.appLockRepository.setLocked(
-                                packageName = app.packageName,
-                                label = app.label,
-                                locked = checked,
-                            )
-                            onSelectionChanged()
-                        }
-                    }
-
-                    if (selectedTab == AppLockListTab.Unlocked) {
-                        if (recommendedApps.isNotEmpty()) {
-                            item { AppListSectionHeader("Recommended apps") }
-                            items(recommendedApps, key = { "recommended-${it.packageName}" }) { app ->
-                                AppSelectionRow(
-                                    app = app,
-                                    checked = false,
-                                    lockDisabled = secureFolderAvailable &&
-                                        app.packageName == SamsungSecureFolderSupport.PACKAGE_NAME,
-                                    onCheckedChange = { checked -> onCheckedChange(app, checked) },
-                                )
+                        transitionSpec = {
+                            if (targetState == AppLockListTab.Locked) {
+                                (slideInHorizontally { width -> width } + fadeIn()) togetherWith
+                                    (slideOutHorizontally { width -> -width } + fadeOut())
+                            } else {
+                                (slideInHorizontally { width -> -width } + fadeIn()) togetherWith
+                                    (slideOutHorizontally { width -> width } + fadeOut())
                             }
-                        }
-                        if (otherUnlockedApps.isNotEmpty()) {
-                            item { AppListSectionHeader("All other apps") }
-                            items(otherUnlockedApps, key = { "other-${it.packageName}" }) { app ->
-                                AppSelectionRow(
-                                    app = app,
-                                    checked = false,
-                                    lockDisabled = secureFolderAvailable &&
-                                        app.packageName == SamsungSecureFolderSupport.PACKAGE_NAME,
-                                    onCheckedChange = { checked -> onCheckedChange(app, checked) },
-                                )
+                        },
+                        label = "appLockTabContent",
+                    ) { tab ->
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (tab == AppLockListTab.Unlocked) {
+                                if (recommendedApps.isNotEmpty()) {
+                                    item { AppListSectionHeader("Recommended apps") }
+                                    items(recommendedApps, key = { "recommended-${it.packageName}" }) { app ->
+                                        AppSelectionRow(
+                                            app = app,
+                                            checked = false,
+                                            lockDisabled = secureFolderAvailable &&
+                                                app.packageName == SamsungSecureFolderSupport.PACKAGE_NAME,
+                                            onCheckedChange = { checked -> onCheckedChange(app, checked) },
+                                        )
+                                    }
+                                }
+                                if (otherUnlockedApps.isNotEmpty()) {
+                                    item { AppListSectionHeader("All other apps") }
+                                    items(otherUnlockedApps, key = { "other-${it.packageName}" }) { app ->
+                                        AppSelectionRow(
+                                            app = app,
+                                            checked = false,
+                                            lockDisabled = secureFolderAvailable &&
+                                                app.packageName == SamsungSecureFolderSupport.PACKAGE_NAME,
+                                            onCheckedChange = { checked -> onCheckedChange(app, checked) },
+                                        )
+                                    }
+                                }
+                                if (unlockedApps.isEmpty()) {
+                                    item { EmptyAppListState(if (query.isBlank()) "No unlocked apps" else "No unlocked apps found") }
+                                }
+                            } else {
+                                if (lockedVisibleApps.isEmpty()) {
+                                    item { EmptyAppListState(if (query.isBlank()) "No locked apps yet" else "No locked apps found") }
+                                }
+                                items(lockedVisibleApps, key = { "locked-${it.packageName}" }) { app ->
+                                    AppSelectionRow(
+                                        app = app,
+                                        checked = true,
+                                        lockDisabled = secureFolderAvailable &&
+                                            app.packageName == SamsungSecureFolderSupport.PACKAGE_NAME,
+                                        onCheckedChange = { checked -> onCheckedChange(app, checked) },
+                                    )
+                                }
                             }
-                        }
-                        if (unlockedApps.isEmpty()) {
-                            item { EmptyAppListState(if (query.isBlank()) "No unlocked apps" else "No unlocked apps found") }
-                        }
-                    } else {
-                        if (lockedVisibleApps.isEmpty()) {
-                            item { EmptyAppListState(if (query.isBlank()) "No locked apps yet" else "No locked apps found") }
-                        }
-                        items(lockedVisibleApps, key = { "locked-${it.packageName}" }) { app ->
-                            AppSelectionRow(
-                                app = app,
-                                checked = true,
-                                lockDisabled = secureFolderAvailable &&
-                                    app.packageName == SamsungSecureFolderSupport.PACKAGE_NAME,
-                                onCheckedChange = { checked -> onCheckedChange(app, checked) },
-                            )
                         }
                     }
                 }
