@@ -42,8 +42,24 @@ class ExpenseBackupContributor(
                             .put("category", bill.category)
                             .put("amountMinor", bill.amountMinor)
                             .put("active", bill.active)
+                            .put("startMonthKey", bill.startMonthKey)
+                            .put("endMonthKey", bill.endMonthKey)
+                            .put("dueDay", bill.dueDay)
                             .put("createdAtMillis", bill.createdAtMillis)
                             .put("updatedAtMillis", bill.updatedAtMillis),
+                    )
+                }
+            })
+            .put("billAmounts", JSONArray().also { rows ->
+                record.billAmounts.forEach { change ->
+                    rows.put(
+                        JSONObject()
+                            .put("changeId", change.changeId)
+                            .put("billId", change.billId)
+                            .put("effectiveMonthKey", change.effectiveMonthKey)
+                            .put("amountMinor", change.amountMinor)
+                            .put("createdAtMillis", change.createdAtMillis)
+                            .put("updatedAtMillis", change.updatedAtMillis),
                     )
                 }
             })
@@ -63,6 +79,7 @@ class ExpenseBackupContributor(
     override suspend fun importJson(payload: JSONObject) {
         val entries = payload.getJSONArray("entries")
         val bills = payload.getJSONArray("bills")
+        val billAmounts = payload.optJSONArray("billAmounts")
         val months = payload.getJSONArray("months")
         repository.importRecords(
             ExpenseBackupRecord(
@@ -101,10 +118,35 @@ class ExpenseBackupContributor(
                                 category = bill.getString("category"),
                                 amountMinor = bill.getLong("amountMinor"),
                                 active = bill.getBoolean("active"),
+                                startMonthKey = bill.optString("startMonthKey")
+                                    .ifBlank { dateFromMillis(bill.getLong("createdAtMillis")).take(7) },
+                                endMonthKey = if (bill.isNull("endMonthKey")) {
+                                    null
+                                } else {
+                                    bill.optString("endMonthKey").takeIf { it.isNotBlank() }
+                                },
+                                dueDay = bill.optInt("dueDay", 1).coerceIn(1, 31),
                                 createdAtMillis = bill.getLong("createdAtMillis"),
                                 updatedAtMillis = bill.getLong("updatedAtMillis"),
                             ),
                         )
+                    }
+                },
+                billAmounts = buildList {
+                    if (billAmounts != null) {
+                        for (index in 0 until billAmounts.length()) {
+                            val change = billAmounts.getJSONObject(index)
+                            add(
+                                MonthlyBillAmountChange(
+                                    changeId = change.getString("changeId"),
+                                    billId = change.getString("billId"),
+                                    effectiveMonthKey = change.getString("effectiveMonthKey"),
+                                    amountMinor = change.getLong("amountMinor"),
+                                    createdAtMillis = change.getLong("createdAtMillis"),
+                                    updatedAtMillis = change.getLong("updatedAtMillis"),
+                                ),
+                            )
+                        }
                     }
                 },
                 months = buildList {

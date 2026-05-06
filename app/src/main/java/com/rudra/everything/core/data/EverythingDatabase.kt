@@ -11,6 +11,7 @@ import com.rudra.everything.feature.applock.data.LockedAppEntity
 import com.rudra.everything.feature.expense.data.ExpenseDao
 import com.rudra.everything.feature.expense.data.ExpenseEntryEntity
 import com.rudra.everything.feature.expense.data.ExpenseMonthEntity
+import com.rudra.everything.feature.expense.data.MonthlyBillAmountEntity
 import com.rudra.everything.feature.expense.data.MonthlyBillEntity
 import com.rudra.everything.feature.keystore.data.KeyStoreEntryDao
 import com.rudra.everything.feature.keystore.data.KeyStoreEntryEntity
@@ -25,10 +26,11 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         SecureSettingEntity::class,
         ExpenseEntryEntity::class,
         MonthlyBillEntity::class,
+        MonthlyBillAmountEntity::class,
         ExpenseMonthEntity::class,
         SecureNoteEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class EverythingDatabase : RoomDatabase() {
@@ -57,6 +59,7 @@ abstract class EverythingDatabase : RoomDatabase() {
                     MIGRATION_3_4,
                     MIGRATION_4_5,
                     MIGRATION_5_6,
+                    MIGRATION_6_7,
                     MIGRATION_7_6,
                 )
                 .build()
@@ -195,6 +198,60 @@ abstract class EverythingDatabase : RoomDatabase() {
                     UPDATE `expense_entries`
                     SET `expenseDate` = substr(datetime(`createdAtMillis` / 1000, 'unixepoch'), 1, 10)
                     WHERE `expenseDate` = ''
+                    """.trimIndent(),
+                )
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `monthly_bills` ADD COLUMN `startMonthKey` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `monthly_bills` ADD COLUMN `endMonthKey` TEXT")
+                db.execSQL("ALTER TABLE `monthly_bills` ADD COLUMN `dueDay` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL(
+                    """
+                    UPDATE `monthly_bills`
+                    SET `startMonthKey` = (
+                        SELECT COALESCE(MIN(`monthKey`), substr(datetime(`monthly_bills`.`createdAtMillis` / 1000, 'unixepoch'), 1, 7))
+                        FROM `expense_entries`
+                        WHERE `expense_entries`.`sourceBillId` = `monthly_bills`.`billId`
+                    )
+                    WHERE `startMonthKey` = ''
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `monthly_bill_amounts` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `changeId` TEXT NOT NULL,
+                        `billId` TEXT NOT NULL,
+                        `effectiveMonthKey` TEXT NOT NULL,
+                        `amountMinor` INTEGER NOT NULL,
+                        `createdAtMillis` INTEGER NOT NULL,
+                        `updatedAtMillis` INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_monthly_bill_amounts_changeId` ON `monthly_bill_amounts` (`changeId`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_monthly_bill_amounts_billId_effectiveMonthKey` ON `monthly_bill_amounts` (`billId`, `effectiveMonthKey`)")
+                db.execSQL(
+                    """
+                    INSERT OR IGNORE INTO `monthly_bill_amounts` (
+                        `changeId`,
+                        `billId`,
+                        `effectiveMonthKey`,
+                        `amountMinor`,
+                        `createdAtMillis`,
+                        `updatedAtMillis`
+                    )
+                    SELECT
+                        `billId` || '-initial',
+                        `billId`,
+                        CASE WHEN `startMonthKey` = '' THEN substr(datetime(`createdAtMillis` / 1000, 'unixepoch'), 1, 7) ELSE `startMonthKey` END,
+                        `amountMinor`,
+                        `createdAtMillis`,
+                        `updatedAtMillis`
+                    FROM `monthly_bills`
                     """.trimIndent(),
                 )
             }

@@ -40,6 +40,27 @@ data class MonthlyBillEntity(
     val category: String,
     val amountMinor: Long,
     val active: Boolean,
+    val startMonthKey: String,
+    val endMonthKey: String?,
+    val dueDay: Int,
+    val createdAtMillis: Long,
+    val updatedAtMillis: Long,
+)
+
+@Entity(
+    tableName = "monthly_bill_amounts",
+    indices = [
+        Index(value = ["changeId"], unique = true),
+        Index(value = ["billId", "effectiveMonthKey"], unique = true),
+    ],
+)
+data class MonthlyBillAmountEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val changeId: String,
+    val billId: String,
+    val effectiveMonthKey: String,
+    val amountMinor: Long,
     val createdAtMillis: Long,
     val updatedAtMillis: Long,
 )

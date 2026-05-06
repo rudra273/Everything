@@ -2,6 +2,7 @@ package com.rudra.everything.feature.expense.data
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.UUID
@@ -14,13 +15,32 @@ class ExpenseRepository(
             dao.observeEntriesForMonth(monthKey),
             dao.observeActiveBills(),
             dao.observeMonth(monthKey),
-        ) { entries, bills, month ->
+            dao.observeBillAmounts(),
+        ) { entries, bills, month, amounts ->
             ExpenseMonthSummary(
                 monthKey = monthKey,
                 limitMinor = month?.limitMinor ?: 0L,
                 entries = entries.map { it.toDomain() },
-                monthlyBills = bills.map { it.toDomain() },
+                monthlyBills = bills.map { it.toDomain(amountForMonth(it.billId, monthKey, bills, amounts)) },
             )
+        }
+    }
+
+    fun observeBills(): Flow<List<MonthlyBill>> {
+        return combine(
+            dao.observeBills(),
+            dao.observeBillAmounts(),
+        ) { bills, amounts ->
+            val currentMonth = YearMonth.now().toString()
+            bills.map { bill ->
+                bill.toDomain(amountForMonth(bill.billId, currentMonth, bills, amounts))
+            }
+        }
+    }
+
+    fun observeAllEntries(): Flow<List<ExpenseEntry>> {
+        return dao.observeAllEntries().map { entries ->
+            entries.map { it.toDomain() }
         }
     }
 
@@ -36,9 +56,9 @@ class ExpenseRepository(
                 ),
             )
         }
-        dao.getActiveBills().forEach { bill ->
+        dao.getActiveBillsForMonth(monthKey).forEach { bill ->
             if (dao.getBillOccurrence(monthKey, bill.billId) == null) {
-                dao.upsertEntry(bill.toOccurrence(monthKey, now))
+                dao.upsertEntry(bill.toOccurrence(monthKey, bill.amountForMonth(monthKey), now))
             }
         }
     }
@@ -80,21 +100,46 @@ class ExpenseRepository(
         )
     }
 
-    suspend fun addMonthlyBill(currentMonthKey: String, title: String, category: String, amountMinor: Long) {
+    suspend fun addMonthlyBill(
+        title: String,
+        category: String,
+        amountMinor: Long,
+        startMonthKey: String,
+        endMonthKey: String?,
+        dueDay: Int,
+    ) {
         require(title.trim().isNotBlank()) { "Bill title cannot be empty" }
         require(amountMinor > 0L) { "Amount must be greater than zero" }
+        val startMonth = YearMonth.parse(startMonthKey)
+        val normalizedEnd = endMonthKey?.takeIf { it.isNotBlank() }
+        normalizedEnd?.let { require(!YearMonth.parse(it).isBefore(startMonth)) { "End month cannot be before start month" } }
+        require(dueDay in 1..31) { "Due day must be between 1 and 31" }
         val now = System.currentTimeMillis()
+        val billId = UUID.randomUUID().toString()
         val bill = MonthlyBillEntity(
-            billId = UUID.randomUUID().toString(),
+            billId = billId,
             title = title.trim(),
             category = category.trim().ifBlank { "Bills" },
             amountMinor = amountMinor,
             active = true,
+            startMonthKey = startMonth.toString(),
+            endMonthKey = normalizedEnd,
+            dueDay = dueDay,
             createdAtMillis = now,
             updatedAtMillis = now,
         )
         dao.upsertBill(bill)
-        ensureMonth(currentMonthKey)
+        dao.upsertBillAmount(
+            MonthlyBillAmountEntity(
+                changeId = UUID.randomUUID().toString(),
+                billId = billId,
+                effectiveMonthKey = startMonth.toString(),
+                amountMinor = amountMinor,
+                createdAtMillis = now,
+                updatedAtMillis = now,
+            ),
+        )
+        ensureMonth(startMonth.toString())
     }
 
     suspend fun deleteEntry(entryId: String) {
@@ -123,12 +168,63 @@ class ExpenseRepository(
     suspend fun stopMonthlyBill(billId: String) {
         val bill = dao.getBill(billId) ?: return
         dao.upsertBill(bill.copy(active = false, updatedAtMillis = System.currentTimeMillis()))
+        dao.deleteFutureBillOccurrences(billId, YearMonth.now().plusMonths(1).toString())
+    }
+
+    suspend fun updateMonthlyBill(
+        billId: String,
+        title: String,
+        category: String,
+        startMonthKey: String,
+        endMonthKey: String?,
+        dueDay: Int,
+    ) {
+        require(title.trim().isNotBlank()) { "Bill title cannot be empty" }
+        val startMonth = YearMonth.parse(startMonthKey)
+        val normalizedEnd = endMonthKey?.takeIf { it.isNotBlank() }
+        normalizedEnd?.let { require(!YearMonth.parse(it).isBefore(startMonth)) { "End month cannot be before start month" } }
+        require(dueDay in 1..31) { "Due day must be between 1 and 31" }
+        val bill = dao.getBill(billId) ?: return
+        dao.upsertBill(
+            bill.copy(
+                title = title.trim(),
+                category = category.trim().ifBlank { "Bills" },
+                startMonthKey = startMonth.toString(),
+                endMonthKey = normalizedEnd,
+                dueDay = dueDay,
+                updatedAtMillis = System.currentTimeMillis(),
+            ),
+        )
+        dao.deleteFutureBillOccurrences(billId, YearMonth.now().toString())
+    }
+
+    suspend fun updateMonthlyBillAmount(billId: String, effectiveMonthKey: String, amountMinor: Long) {
+        require(amountMinor > 0L) { "Amount must be greater than zero" }
+        YearMonth.parse(effectiveMonthKey)
+        val now = System.currentTimeMillis()
+        dao.upsertBillAmount(
+            MonthlyBillAmountEntity(
+                changeId = UUID.randomUUID().toString(),
+                billId = billId,
+                effectiveMonthKey = effectiveMonthKey,
+                amountMinor = amountMinor,
+                createdAtMillis = now,
+                updatedAtMillis = now,
+            ),
+        )
+        dao.getBill(billId)?.let { bill ->
+            if (effectiveMonthKey <= YearMonth.now().toString()) {
+                dao.upsertBill(bill.copy(amountMinor = amountMinor, updatedAtMillis = now))
+            }
+        }
+        dao.deleteFutureBillOccurrences(billId, effectiveMonthKey)
     }
 
     suspend fun exportRecords(): ExpenseBackupRecord {
         return ExpenseBackupRecord(
             entries = dao.getAllEntries().map { it.toDomain() },
             bills = dao.getAllBills().map { it.toDomain() },
+            billAmounts = dao.getAllBillAmounts().map { it.toDomain() },
             months = dao.getAllMonths(),
         )
     }
@@ -143,17 +239,43 @@ class ExpenseRepository(
                     category = bill.category,
                     amountMinor = bill.amountMinor,
                     active = bill.active,
+                    startMonthKey = bill.startMonthKey,
+                    endMonthKey = bill.endMonthKey,
+                    dueDay = bill.dueDay,
                     createdAtMillis = bill.createdAtMillis,
                     updatedAtMillis = bill.updatedAtMillis,
                 ),
             )
+        }
+        record.billAmounts.forEach { change ->
+            dao.upsertBillAmount(change.toEntity())
         }
         record.entries.forEach { entry ->
             dao.upsertEntry(entry.toEntity())
         }
     }
 
-    private fun MonthlyBillEntity.toOccurrence(monthKey: String, now: Long): ExpenseEntryEntity {
+    private suspend fun MonthlyBillEntity.amountForMonth(monthKey: String): Long {
+        return dao.getBillAmountForMonth(billId, monthKey)?.amountMinor ?: amountMinor
+    }
+
+    private fun amountForMonth(
+        billId: String,
+        monthKey: String,
+        bills: List<MonthlyBillEntity>,
+        amounts: List<MonthlyBillAmountEntity>,
+    ): Long {
+        return amounts
+            .filter { it.billId == billId && it.effectiveMonthKey <= monthKey }
+            .maxByOrNull { it.effectiveMonthKey }
+            ?.amountMinor
+            ?: bills.firstOrNull { it.billId == billId }?.amountMinor
+            ?: 0L
+    }
+
+    private fun MonthlyBillEntity.toOccurrence(monthKey: String, amountMinor: Long, now: Long): ExpenseEntryEntity {
+        val month = YearMonth.parse(monthKey)
+        val clampedDay = dueDay.coerceIn(1, month.lengthOfMonth())
         return ExpenseEntryEntity(
             entryId = UUID.randomUUID().toString(),
             monthKey = monthKey,
@@ -162,7 +284,7 @@ class ExpenseRepository(
             amountMinor = amountMinor,
             kind = KIND_MONTHLY_BILL,
             sourceBillId = billId,
-            expenseDate = "$monthKey-01",
+            expenseDate = month.atDay(clampedDay).toString(),
             note = "Static monthly bill",
             createdAtMillis = now,
             updatedAtMillis = now,
@@ -192,6 +314,35 @@ class ExpenseRepository(
             category = category,
             amountMinor = amountMinor,
             active = active,
+            startMonthKey = startMonthKey.ifBlank { YearMonth.now().toString() },
+            endMonthKey = endMonthKey?.takeIf { it.isNotBlank() },
+            dueDay = dueDay.coerceIn(1, 31),
+            createdAtMillis = createdAtMillis,
+            updatedAtMillis = updatedAtMillis,
+        )
+    }
+
+    private fun MonthlyBillEntity.toDomain(displayAmountMinor: Long): MonthlyBill {
+        return toDomain().copy(amountMinor = displayAmountMinor)
+    }
+
+    private fun MonthlyBillAmountEntity.toDomain(): MonthlyBillAmountChange {
+        return MonthlyBillAmountChange(
+            changeId = changeId,
+            billId = billId,
+            effectiveMonthKey = effectiveMonthKey,
+            amountMinor = amountMinor,
+            createdAtMillis = createdAtMillis,
+            updatedAtMillis = updatedAtMillis,
+        )
+    }
+
+    private fun MonthlyBillAmountChange.toEntity(): MonthlyBillAmountEntity {
+        return MonthlyBillAmountEntity(
+            changeId = changeId,
+            billId = billId,
+            effectiveMonthKey = effectiveMonthKey,
+            amountMinor = amountMinor,
             createdAtMillis = createdAtMillis,
             updatedAtMillis = updatedAtMillis,
         )
@@ -222,5 +373,6 @@ class ExpenseRepository(
 data class ExpenseBackupRecord(
     val entries: List<ExpenseEntry>,
     val bills: List<MonthlyBill>,
+    val billAmounts: List<MonthlyBillAmountChange> = emptyList(),
     val months: List<ExpenseMonthEntity>,
 )

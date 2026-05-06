@@ -25,6 +25,18 @@ data class MonthlyBill(
     val category: String,
     val amountMinor: Long,
     val active: Boolean,
+    val startMonthKey: String,
+    val endMonthKey: String?,
+    val dueDay: Int,
+    val createdAtMillis: Long,
+    val updatedAtMillis: Long,
+)
+
+data class MonthlyBillAmountChange(
+    val changeId: String,
+    val billId: String,
+    val effectiveMonthKey: String,
+    val amountMinor: Long,
     val createdAtMillis: Long,
     val updatedAtMillis: Long,
 )
