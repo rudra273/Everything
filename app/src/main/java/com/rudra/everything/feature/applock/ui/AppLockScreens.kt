@@ -463,8 +463,6 @@ fun AppLockScreen(
     onBack: () -> Unit,
     onSelectionChanged: () -> Unit,
 ) {
-    BackHandler { onBack() }
-
     val context = LocalContext.current
     val activity = context as FragmentActivity
     val scope = rememberCoroutineScope()
@@ -482,6 +480,14 @@ fun AppLockScreen(
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val lockedPackages = remember(lockedApps) { lockedApps.map { it.packageName }.toSet() }
     val secureFolderAvailable = remember(context) { SamsungSecureFolderSupport.isAvailable(context) }
+
+    BackHandler {
+        if (query.isNotBlank()) {
+            query = ""
+        } else {
+            onBack()
+        }
+    }
 
     fun tryBiometricUnlock(enabled: Boolean = biometricEnabled) {
         if (!enabled || !biometricAuthenticator.canAuthenticate()) return
