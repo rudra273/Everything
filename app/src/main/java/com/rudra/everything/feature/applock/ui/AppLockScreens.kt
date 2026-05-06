@@ -2,10 +2,14 @@ package com.rudra.everything.feature.applock.ui
 
 import android.content.ActivityNotFoundException
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -59,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -89,6 +95,11 @@ import com.rudra.everything.feature.applock.domain.SamsungSecureFolderSupport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private enum class AppLockListTab {
+    Unlocked,
+    Locked,
+}
 
 @Composable
 fun SetupCredentialScreen(
@@ -472,6 +483,8 @@ fun AppLockScreen(
     var unlockError by remember { mutableStateOf<String?>(null) }
     var biometricEnabled by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var selectedTab by remember { mutableStateOf(AppLockListTab.Unlocked) }
+    var tabSwipeOffset by remember { mutableStateOf(0f) }
     var installedApps by remember { mutableStateOf<List<InstalledApp>?>(null) }
     var toolLocked by remember { mutableStateOf<Boolean?>(null) }
     val isToolLocked = toolLocked
@@ -592,6 +605,21 @@ fun AppLockScreen(
                 .thenBy { it.label.lowercase() }
         )
     }
+    val unlockedApps = remember(filteredApps, lockedPackages) {
+        filteredApps.filterNot { it.packageName in lockedPackages }
+    }
+    val lockedVisibleApps = remember(filteredApps, lockedPackages) {
+        filteredApps.filter { it.packageName in lockedPackages }
+    }
+    val recommendedApps = remember(unlockedApps, context.packageName) {
+        unlockedApps
+            .filter { it.isRecommendedApp(context.packageName) }
+            .sortedWith(compareBy<InstalledApp> { it.recommendationPriority(context.packageName) }.thenBy { it.label.lowercase() })
+    }
+    val otherUnlockedApps = remember(unlockedApps, recommendedApps) {
+        val recommendedPackages = recommendedApps.map { it.packageName }.toSet()
+        unlockedApps.filterNot { it.packageName in recommendedPackages }
+    }
 
     GlassBackground {
         Scaffold(
@@ -633,7 +661,22 @@ fun AppLockScreen(
                         .fillMaxSize()
                         .padding(padding)
                         .padding(horizontal = 20.dp)
-                        .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+                        .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+                        .pointerInput(selectedTab) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    when {
+                                        tabSwipeOffset < -80f -> selectedTab = AppLockListTab.Locked
+                                        tabSwipeOffset > 80f -> selectedTab = AppLockListTab.Unlocked
+                                    }
+                                    tabSwipeOffset = 0f
+                                },
+                                onDragCancel = { tabSwipeOffset = 0f },
+                                onHorizontalDrag = { _, dragAmount ->
+                                    tabSwipeOffset += dragAmount
+                                },
+                            )
+                        },
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     item {
@@ -658,41 +701,243 @@ fun AppLockScreen(
                                     unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
                                 ),
                             )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.Bottom,
-                            ) {
-                                Text(
-                                    text = "Apps",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.weight(1f),
-                                )
+                            AppLockTabSelector(
+                                selectedTab = selectedTab,
+                                unlockedCount = unlockedApps.size,
+                                lockedCount = lockedVisibleApps.size,
+                                onTabSelected = { selectedTab = it },
+                            )
                         }
                     }
-                }
 
-                    items(filteredApps, key = { it.packageName }) { app ->
-                        AppSelectionRow(
-                            app = app,
-                            checked = app.packageName in lockedPackages,
-                            lockDisabled = secureFolderAvailable &&
-                                app.packageName == SamsungSecureFolderSupport.PACKAGE_NAME,
-                            onCheckedChange = { checked ->
-                                scope.launch {
-                                    container.appLockRepository.setLocked(
-                                        packageName = app.packageName,
-                                        label = app.label,
-                                        locked = checked,
-                                    )
-                                    onSelectionChanged()
-                                }
-                            },
-                        )
+                    val onCheckedChange: (InstalledApp, Boolean) -> Unit = { app, checked ->
+                        scope.launch {
+                            container.appLockRepository.setLocked(
+                                packageName = app.packageName,
+                                label = app.label,
+                                locked = checked,
+                            )
+                            onSelectionChanged()
+                        }
+                    }
+
+                    if (selectedTab == AppLockListTab.Unlocked) {
+                        if (recommendedApps.isNotEmpty()) {
+                            item { AppListSectionHeader("Recommended apps") }
+                            items(recommendedApps, key = { "recommended-${it.packageName}" }) { app ->
+                                AppSelectionRow(
+                                    app = app,
+                                    checked = false,
+                                    lockDisabled = secureFolderAvailable &&
+                                        app.packageName == SamsungSecureFolderSupport.PACKAGE_NAME,
+                                    onCheckedChange = { checked -> onCheckedChange(app, checked) },
+                                )
+                            }
+                        }
+                        if (otherUnlockedApps.isNotEmpty()) {
+                            item { AppListSectionHeader("All other apps") }
+                            items(otherUnlockedApps, key = { "other-${it.packageName}" }) { app ->
+                                AppSelectionRow(
+                                    app = app,
+                                    checked = false,
+                                    lockDisabled = secureFolderAvailable &&
+                                        app.packageName == SamsungSecureFolderSupport.PACKAGE_NAME,
+                                    onCheckedChange = { checked -> onCheckedChange(app, checked) },
+                                )
+                            }
+                        }
+                        if (unlockedApps.isEmpty()) {
+                            item { EmptyAppListState(if (query.isBlank()) "No unlocked apps" else "No unlocked apps found") }
+                        }
+                    } else {
+                        if (lockedVisibleApps.isEmpty()) {
+                            item { EmptyAppListState(if (query.isBlank()) "No locked apps yet" else "No locked apps found") }
+                        }
+                        items(lockedVisibleApps, key = { "locked-${it.packageName}" }) { app ->
+                            AppSelectionRow(
+                                app = app,
+                                checked = true,
+                                lockDisabled = secureFolderAvailable &&
+                                    app.packageName == SamsungSecureFolderSupport.PACKAGE_NAME,
+                                onCheckedChange = { checked -> onCheckedChange(app, checked) },
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AppLockTabSelector(
+    selectedTab: AppLockListTab,
+    unlockedCount: Int,
+    lockedCount: Int,
+    onTabSelected: (AppLockListTab) -> Unit,
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 2.dp),
+    ) {
+        val tabWidth = maxWidth / 2
+        val indicatorOffset by animateDpAsState(
+            targetValue = if (selectedTab == AppLockListTab.Locked) tabWidth else 0.dp,
+            label = "appLockTabIndicatorOffset",
+        )
+
+        Column {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                AppLockTabButton(
+                    title = "Unlocked",
+                    count = unlockedCount,
+                    selected = selectedTab == AppLockListTab.Unlocked,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onTabSelected(AppLockListTab.Unlocked) },
+                )
+                AppLockTabButton(
+                    title = "Locked",
+                    count = lockedCount,
+                    selected = selectedTab == AppLockListTab.Locked,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onTabSelected(AppLockListTab.Locked) },
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .offset(x = indicatorOffset)
+                        .width(tabWidth),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(72.dp)
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Cyan),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppLockTabButton(
+    title: String,
+    count: Int,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val titleColor by animateColorAsState(
+        targetValue = if (selected) Cyan else MutedText,
+        label = "appLockTabTitleColor",
+    )
+    val countColor by animateColorAsState(
+        targetValue = if (selected) SoftText else MutedText,
+        label = "appLockTabCountColor",
+    )
+
+    Row(
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            color = titleColor,
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = count.toString(),
+            color = countColor,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun AppListSectionHeader(title: String) {
+    Text(
+        text = title,
+        color = MutedText,
+        fontWeight = FontWeight.SemiBold,
+        style = MaterialTheme.typography.labelLarge,
+        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+    )
+}
+
+@Composable
+private fun EmptyAppListState(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 32.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = message,
+            color = MutedText,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+private fun InstalledApp.isRecommendedApp(ownPackageName: String): Boolean =
+    recommendationPriority(ownPackageName) < Int.MAX_VALUE
+
+private fun InstalledApp.recommendationPriority(ownPackageName: String): Int {
+    val labelText = label.lowercase()
+    val packageText = packageName.lowercase()
+    val combined = "$labelText $packageText"
+
+    return when {
+        packageName == ownPackageName || labelText == "everything" -> 0
+        listOf(
+            "whatsapp",
+            "telegram",
+            "signal",
+            "instagram",
+            "facebook",
+            "messenger",
+            "snapchat",
+            "discord",
+            "linkedin",
+        ).any(combined::contains) -> 1
+        listOf(
+            "bank",
+            "upi",
+            "gpay",
+            "google pay",
+            "phonepe",
+            "paytm",
+            "paypal",
+            "bhim",
+            "wallet",
+            "finance",
+        ).any(combined::contains) -> 2
+        listOf(
+            "gallery",
+            "photos",
+            "photo",
+            "camera",
+            "media",
+        ).any(combined::contains) -> 3
+        else -> Int.MAX_VALUE
     }
 }
 
