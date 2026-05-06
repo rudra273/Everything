@@ -51,7 +51,14 @@ abstract class EverythingDatabase : RoomDatabase() {
                 "everything_secure.db",
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6,
+                    MIGRATION_7_6,
+                )
                 .build()
         }
 
@@ -190,6 +197,48 @@ abstract class EverythingDatabase : RoomDatabase() {
                     WHERE `expenseDate` = ''
                     """.trimIndent(),
                 )
+            }
+        }
+
+        private val MIGRATION_7_6 = object : Migration(7, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `locked_apps_v6` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `packageNameCiphertext` BLOB NOT NULL,
+                        `packageNameIv` BLOB NOT NULL,
+                        `labelCiphertext` BLOB NOT NULL,
+                        `labelIv` BLOB NOT NULL,
+                        `enabled` INTEGER NOT NULL,
+                        `updatedAtMillis` INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO `locked_apps_v6` (
+                        `id`,
+                        `packageNameCiphertext`,
+                        `packageNameIv`,
+                        `labelCiphertext`,
+                        `labelIv`,
+                        `enabled`,
+                        `updatedAtMillis`
+                    )
+                    SELECT
+                        `id`,
+                        `packageNameCiphertext`,
+                        `packageNameIv`,
+                        `labelCiphertext`,
+                        `labelIv`,
+                        `enabled`,
+                        `updatedAtMillis`
+                    FROM `locked_apps`
+                    """.trimIndent(),
+                )
+                db.execSQL("DROP TABLE `locked_apps`")
+                db.execSQL("ALTER TABLE `locked_apps_v6` RENAME TO `locked_apps`")
             }
         }
     }

@@ -85,6 +85,7 @@ import com.rudra.everything.core.ui.SoftText
 import com.rudra.everything.core.ui.Stroke
 import com.rudra.everything.core.ui.glassSurface
 import com.rudra.everything.feature.applock.domain.InstalledApp
+import com.rudra.everything.feature.applock.domain.SamsungSecureFolderSupport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -480,6 +481,7 @@ fun AppLockScreen(
         .observeLockedApps()
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val lockedPackages = remember(lockedApps) { lockedApps.map { it.packageName }.toSet() }
+    val secureFolderAvailable = remember(context) { SamsungSecureFolderSupport.isAvailable(context) }
 
     fun tryBiometricUnlock(enabled: Boolean = biometricEnabled) {
         if (!enabled || !biometricAuthenticator.canAuthenticate()) return
@@ -497,6 +499,16 @@ fun AppLockScreen(
 
     LaunchedEffect(Unit) {
         installedApps = container.installedAppProvider.loadLaunchableApps()
+    }
+
+    LaunchedEffect(secureFolderAvailable) {
+        if (secureFolderAvailable) {
+            container.appLockRepository.setLocked(
+                packageName = SamsungSecureFolderSupport.PACKAGE_NAME,
+                label = "Secure Folder",
+                locked = false,
+            )
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -658,6 +670,8 @@ fun AppLockScreen(
                         AppSelectionRow(
                             app = app,
                             checked = app.packageName in lockedPackages,
+                            lockDisabled = secureFolderAvailable &&
+                                app.packageName == SamsungSecureFolderSupport.PACKAGE_NAME,
                             onCheckedChange = { checked ->
                                 scope.launch {
                                     container.appLockRepository.setLocked(
@@ -891,13 +905,18 @@ private fun PermissionRow(
 private fun AppSelectionRow(
     app: InstalledApp,
     checked: Boolean,
+    lockDisabled: Boolean = false,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .glassSurface(RoundedCornerShape(18.dp), selected = checked, shadowElevation = 2f)
-            .clickable { onCheckedChange(!checked) }
+            .clickable {
+                if (!lockDisabled) {
+                    onCheckedChange(!checked)
+                }
+            }
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -919,7 +938,11 @@ private fun AppSelectionRow(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = if (checked) "Locked app" else "Unlocked",
+                text = when {
+                    lockDisabled -> "Protected by Samsung"
+                    checked -> "Locked app"
+                    else -> "Unlocked"
+                },
                 color = MutedText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -929,13 +952,25 @@ private fun AppSelectionRow(
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .clickable { onCheckedChange(!checked) },
+                .clickable {
+                    if (!lockDisabled) {
+                        onCheckedChange(!checked)
+                    }
+                },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = if (checked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
-                contentDescription = if (checked) "Unlock ${app.label}" else "Lock ${app.label}",
-                tint = Cyan,
+                imageVector = when {
+                    lockDisabled -> Icons.Rounded.Shield
+                    checked -> Icons.Rounded.Lock
+                    else -> Icons.Rounded.LockOpen
+                },
+                contentDescription = when {
+                    lockDisabled -> "${app.label} is protected by Samsung"
+                    checked -> "Unlock ${app.label}"
+                    else -> "Lock ${app.label}"
+                },
+                tint = if (lockDisabled) MutedText else Cyan,
                 modifier = Modifier.size(21.dp),
             )
         }

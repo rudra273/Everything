@@ -10,26 +10,34 @@ class ForegroundAppDetector(
     private val usageStatsManager =
         context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
 
-    fun currentForegroundPackage(): String? {
+    fun currentForegroundApp(): ForegroundApp? {
         val end = System.currentTimeMillis()
         val begin = end - LOOKBACK_MILLIS
         val events = usageStatsManager.queryEvents(begin, end)
         val event = UsageEvents.Event()
-        var foregroundPackage: String? = null
+        var foregroundApp: ForegroundApp? = null
 
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
             if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND ||
                 event.eventType == UsageEvents.Event.ACTIVITY_RESUMED
             ) {
-                foregroundPackage = event.packageName
+                foregroundApp = ForegroundApp(
+                    packageName = event.packageName,
+                    className = event.className,
+                )
             }
         }
 
-        return foregroundPackage
+        return foregroundApp
     }
 
     private companion object {
         const val LOOKBACK_MILLIS = 5_000L
     }
 }
+
+data class ForegroundApp(
+    val packageName: String,
+    val className: String?,
+)

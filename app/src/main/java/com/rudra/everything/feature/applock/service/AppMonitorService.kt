@@ -11,6 +11,7 @@ import com.rudra.everything.EverythingApplication
 import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.permissions.AppLockPermissionChecker
 import com.rudra.everything.core.session.AppLockSessionManager
+import com.rudra.everything.feature.applock.domain.SamsungSecureFolderSupport
 import com.rudra.everything.feature.applock.domain.SettingsPackageResolver
 import com.rudra.everything.feature.applock.ui.LockActivity
 import kotlinx.coroutines.CoroutineScope
@@ -87,7 +88,8 @@ class AppMonitorService : Service() {
     private fun monitorForegroundApps() {
         scope.launch {
             while (true) {
-                val foregroundPackage = runCatching { detector.currentForegroundPackage() }.getOrNull()
+                val foregroundApp = runCatching { detector.currentForegroundApp() }.getOrNull()
+                val foregroundPackage = foregroundApp?.packageName
                 if (foregroundPackage != null && foregroundPackage != lastForegroundPackage) {
                     lastForegroundPackage = foregroundPackage
                     if (foregroundPackage == packageName && activeActivityLockPackage != null) {
@@ -104,6 +106,11 @@ class AppMonitorService : Service() {
 
                 val shouldLock = foregroundPackage != null &&
                     foregroundPackage != packageName &&
+                    !SamsungSecureFolderSupport.shouldBypassLock(
+                        packageName = foregroundPackage,
+                        className = foregroundApp.className,
+                        settingsPackage = settingsPackage,
+                    ) &&
                     foregroundPackage in lockedPackages &&
                     !AppLockSessionManager.isAllowed(foregroundPackage)
 
