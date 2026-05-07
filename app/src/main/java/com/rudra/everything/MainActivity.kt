@@ -39,6 +39,7 @@ import com.rudra.everything.feature.keystore.ui.KeyStoreScreen
 import com.rudra.everything.feature.notes.ui.SecureNotesScreen
 import com.rudra.everything.feature.settings.ui.BackupRestoreScreen
 import com.rudra.everything.feature.settings.ui.SettingsScreen
+import com.rudra.everything.feature.settings.ui.ThemeScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
@@ -74,6 +75,7 @@ private enum class MainRoute {
     Expenses,
     BackupRestore,
     Settings,
+    Theme,
 }
 
 @Composable
@@ -223,10 +225,15 @@ private fun EverythingApp(
             onBack = { route = MainRoute.Settings },
         )
 
+        route == MainRoute.Theme -> ThemeScreen(
+            onBack = { route = MainRoute.Settings },
+        )
+
         route == MainRoute.Settings -> SettingsScreen(
             container = container,
             onBack = { route = MainRoute.Dashboard },
             onOpenBackupRestore = { route = MainRoute.BackupRestore },
+            onOpenTheme = { route = MainRoute.Theme },
         )
     }
 }

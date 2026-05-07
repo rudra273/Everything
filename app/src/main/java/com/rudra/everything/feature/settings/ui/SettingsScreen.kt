@@ -9,7 +9,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -17,6 +16,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Fingerprint
@@ -43,8 +44,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -85,7 +84,6 @@ import com.rudra.everything.core.ui.PrimaryButton
 import com.rudra.everything.core.ui.SecondaryButton
 import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.SoftText
-import com.rudra.everything.core.ui.AppTheme
 import com.rudra.everything.core.ui.glassSurface
 import androidx.compose.material3.CircularProgressIndicator
 import com.rudra.everything.feature.applock.domain.SettingsPackageResolver
@@ -99,12 +97,6 @@ private data class UtilityLockDisableRequest(
     val key: String,
     val title: String,
 )
-
-private fun AppTheme.displayName(): String = when (this) {
-    AppTheme.SPACE_BLACK -> "space dark"
-    AppTheme.SKY_BLUE -> "Sky Blue"
-    AppTheme.ZINC_ROSE -> "Zinc Rose"
-}
 
 private fun deviceAdminComponent(context: Context) =
     ComponentName(context, EverythingDeviceAdmin::class.java)
@@ -162,6 +154,7 @@ fun SettingsScreen(
     container: AppContainer,
     onBack: () -> Unit,
     onOpenBackupRestore: () -> Unit,
+    onOpenTheme: () -> Unit,
 ) {
     BackHandler { onBack() }
 
@@ -199,9 +192,6 @@ fun SettingsScreen(
     var pendingUtilityDisable by remember { mutableStateOf<UtilityLockDisableRequest?>(null) }
     var utilityDisablePin by remember { mutableStateOf("") }
     var utilityDisableError by remember { mutableStateOf<String?>(null) }
-
-    val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
-    var currentTheme by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name) }
 
     LaunchedEffect(Unit) {
         container.secureSettingRepository
@@ -263,13 +253,18 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(WindowInsets.statusBars.asPaddingValues())
-                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .glassSurface(RoundedCornerShape(19.dp), selected = false),
+                    ) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
                     }
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(12.dp))
                     Text(
                         text = "Settings",
                         style = MaterialTheme.typography.titleLarge,
@@ -297,54 +292,14 @@ fun SettingsScreen(
                 return@Column
             }
 
-            SettingsSectionTitle("Appearance")
+            SettingsSectionTitle("Data")
 
-            GlassSettingsBlock(selected = true) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        SettingsIconBadge(Icons.Rounded.Palette, selected = true)
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "App Theme",
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            val selectedTheme = runCatching { AppTheme.valueOf(currentTheme) }.getOrDefault(AppTheme.SPACE_BLACK)
-                            Text(selectedTheme.displayName(), color = MutedText, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf(AppTheme.SPACE_BLACK, AppTheme.SKY_BLUE, AppTheme.ZINC_ROSE).forEach { theme ->
-                            val selected = currentTheme == theme.name
-                            Button(
-                                onClick = {
-                                    sharedPrefs.edit().putString("app_theme", theme.name).apply()
-                                    currentTheme = theme.name
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (selected) Cyan.copy(alpha = 0.86f) else Color.White.copy(alpha = 0.06f),
-                                    contentColor = if (selected) Color(0xFF001716) else SoftText
-                                ),
-                                contentPadding = PaddingValues(horizontal = 4.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.weight(1f).height(40.dp),
-                            ) {
-                                Text(
-                                    text = theme.displayName(),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                    maxLines = 1,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            SettingsNavigationRow(
+                icon = Icons.Rounded.CloudUpload,
+                title = "Backup & Restore",
+                subtitle = "Backup password, Google Drive, and local files",
+                onClick = onOpenBackupRestore,
+            )
 
             SettingsSectionTitle("Protection")
 
@@ -485,6 +440,71 @@ fun SettingsScreen(
                 }
             }
 
+            GlassSettingsBlock(selected = biometricEnabled == true) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SettingsIconBadge(Icons.Rounded.Fingerprint, selected = biometricEnabled == true)
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Fingerprint Unlock",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = if (biometricEnabled == true) "Enabled for Everything tools" else "Use master PIN only",
+                            color = MutedText,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        biometricMessage?.let {
+                            Text(
+                                text = it,
+                                color = Color(0xFFFFD28F),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    Switch(
+                        modifier = Modifier.scale(0.78f),
+                        checked = biometricEnabled == true,
+                        onCheckedChange = { enable ->
+                            biometricMessage = null
+                            if (enable) {
+                                if (!biometricAuthenticator.canAuthenticate()) {
+                                    biometricMessage = "Fingerprint is unavailable on this device"
+                                } else {
+                                    biometricAuthenticator.authenticate(
+                                        title = "Enable fingerprint",
+                                        subtitle = "Confirm once for Everything tools",
+                                        onSuccess = {
+                                            scope.launch {
+                                                container.secureSettingRepository.putBoolean(
+                                                    SecureSettingRepository.KEY_BIOMETRIC_ENABLED,
+                                                    true,
+                                                )
+                                            }
+                                        },
+                                        onError = { biometricMessage = it },
+                                    )
+                                }
+                            } else {
+                                showBiometricDisableConfirm = true
+                                biometricDisablePin = ""
+                                biometricDisableError = null
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Cyan,
+                            checkedTrackColor = Cyan.copy(alpha = 0.22f),
+                            uncheckedThumbColor = SoftText,
+                            uncheckedTrackColor = Color.Transparent,
+                            uncheckedBorderColor = SoftText.copy(alpha = 0.22f),
+                        ),
+                    )
+                }
+            }
+
             GlassSettingsBlock(selected = isAdminActive) {
                 Column {
                     Row(
@@ -604,71 +624,6 @@ fun SettingsScreen(
                 }
             }
 
-            GlassSettingsBlock(selected = biometricEnabled == true) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SettingsIconBadge(Icons.Rounded.Fingerprint, selected = biometricEnabled == true)
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Fingerprint Unlock",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            text = if (biometricEnabled == true) "Enabled for Everything tools" else "Use master PIN only",
-                            color = MutedText,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        biometricMessage?.let {
-                            Text(
-                                text = it,
-                                color = Color(0xFFFFD28F),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                    Switch(
-                        modifier = Modifier.scale(0.78f),
-                        checked = biometricEnabled == true,
-                        onCheckedChange = { enable ->
-                            biometricMessage = null
-                            if (enable) {
-                                if (!biometricAuthenticator.canAuthenticate()) {
-                                    biometricMessage = "Fingerprint is unavailable on this device"
-                                } else {
-                                    biometricAuthenticator.authenticate(
-                                        title = "Enable fingerprint",
-                                        subtitle = "Confirm once for Everything tools",
-                                        onSuccess = {
-                                            scope.launch {
-                                                container.secureSettingRepository.putBoolean(
-                                                    SecureSettingRepository.KEY_BIOMETRIC_ENABLED,
-                                                    true,
-                                                )
-                                            }
-                                        },
-                                        onError = { biometricMessage = it },
-                                    )
-                                }
-                            } else {
-                                showBiometricDisableConfirm = true
-                                biometricDisablePin = ""
-                                biometricDisableError = null
-                            }
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Cyan,
-                            checkedTrackColor = Cyan.copy(alpha = 0.22f),
-                            uncheckedThumbColor = SoftText,
-                            uncheckedTrackColor = Color.Transparent,
-                            uncheckedBorderColor = SoftText.copy(alpha = 0.22f),
-                        ),
-                    )
-                }
-            }
-
             if (isAdminActive) {
                 Text(
                     text = "The Settings app is locked to prevent admin deactivation. " +
@@ -677,32 +632,6 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(horizontal = 4.dp),
                 )
-            }
-
-            SettingsSectionTitle("Backup")
-
-            GlassSettingsBlock(selected = false) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onOpenBackupRestore),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SettingsIconBadge(Icons.Rounded.CloudUpload, selected = false)
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Backup & restore",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            text = "Backup password, Google Drive, and local files",
-                            color = MutedText,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
             }
 
             GlassSettingsBlock(
@@ -759,6 +688,15 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            SettingsSectionTitle("Personalization")
+
+            SettingsNavigationRow(
+                icon = Icons.Rounded.Palette,
+                title = "Theme",
+                subtitle = "Choose the app theme",
+                onClick = onOpenTheme,
+            )
 
                 Spacer(Modifier.height(24.dp))
             }
@@ -937,6 +875,45 @@ private fun SettingsSectionTitle(text: String) {
         letterSpacing = 0.sp,
         modifier = Modifier.padding(top = 4.dp),
     )
+}
+
+@Composable
+private fun SettingsNavigationRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    GlassSettingsBlock(selected = false) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .clickable(onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SettingsIconBadge(icon, selected = false)
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = subtitle,
+                    color = MutedText,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MutedText,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
 }
 
 @Composable
