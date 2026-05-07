@@ -59,8 +59,8 @@ const val PREF_APP_BACKGROUND = "app_background"
 const val PREF_GLASS_OPACITY = "glass_opacity"
 const val PREF_GLASS_BLUR = "glass_blur"
 
-private const val DEFAULT_GLASS_OPACITY = 42f
-private const val DEFAULT_GLASS_BLUR = 68f
+private const val DEFAULT_GLASS_OPACITY = 0f
+private const val DEFAULT_GLASS_BLUR = 20f
 
 data class GlassMorphSettings(
     val opacity: Float = DEFAULT_GLASS_OPACITY,
@@ -309,7 +309,7 @@ fun EverythingTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
     var themeName by remember { mutableStateOf(sharedPrefs.getString(PREF_APP_THEME, AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name) }
-    var backgroundName by remember { mutableStateOf(sharedPrefs.getString(PREF_APP_BACKGROUND, AppBackground.DARK_GLASS.name) ?: AppBackground.DARK_GLASS.name) }
+    var backgroundName by remember { mutableStateOf(sharedPrefs.getString(PREF_APP_BACKGROUND, AppBackground.AURORA.name) ?: AppBackground.AURORA.name) }
     var glassOpacity by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_OPACITY, DEFAULT_GLASS_OPACITY)) }
     var glassBlur by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_BLUR, DEFAULT_GLASS_BLUR)) }
     
@@ -317,7 +317,7 @@ fun EverythingTheme(content: @Composable () -> Unit) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
             when (key) {
                 PREF_APP_THEME -> themeName = prefs.getString(PREF_APP_THEME, AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name
-                PREF_APP_BACKGROUND -> backgroundName = prefs.getString(PREF_APP_BACKGROUND, AppBackground.DARK_GLASS.name) ?: AppBackground.DARK_GLASS.name
+                PREF_APP_BACKGROUND -> backgroundName = prefs.getString(PREF_APP_BACKGROUND, AppBackground.AURORA.name) ?: AppBackground.AURORA.name
                 PREF_GLASS_OPACITY -> glassOpacity = prefs.getFloat(PREF_GLASS_OPACITY, DEFAULT_GLASS_OPACITY)
                 PREF_GLASS_BLUR -> glassBlur = prefs.getFloat(PREF_GLASS_BLUR, DEFAULT_GLASS_BLUR)
             }

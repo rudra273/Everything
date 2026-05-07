@@ -37,6 +37,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Apps
@@ -125,6 +126,7 @@ fun SetupCredentialScreen(
                     icon = Icons.Rounded.Security,
                     title = "Everything",
                     subtitle = "Create master PIN",
+                    useAppLogo = true,
                 )
 
                 SecureTextField(
@@ -1051,9 +1053,14 @@ private fun BrandHeader(
     icon: ImageVector,
     title: String,
     subtitle: String,
+    useAppLogo: Boolean = false,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        IconBadge(icon)
+        if (useAppLogo) {
+            AppLogoBadge()
+        } else {
+            IconBadge(icon)
+        }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 text = title,
@@ -1067,6 +1074,17 @@ private fun BrandHeader(
             )
         }
     }
+}
+
+@Composable
+private fun AppLogoBadge() {
+    Image(
+        painter = painterResource(id = com.rudra.everything.R.drawable.enew),
+        contentDescription = null,
+        modifier = Modifier
+            .size(64.dp)
+            .clip(RoundedCornerShape(18.dp)),
+    )
 }
 
 @Composable

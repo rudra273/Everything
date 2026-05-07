@@ -83,12 +83,12 @@ fun ThemeScreen(
         mutableStateOf(sharedPrefs.getString(PREF_APP_THEME, AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name)
     }
     var currentBackground by remember {
-        mutableStateOf(sharedPrefs.getString(PREF_APP_BACKGROUND, AppBackground.DARK_GLASS.name) ?: AppBackground.DARK_GLASS.name)
+        mutableStateOf(sharedPrefs.getString(PREF_APP_BACKGROUND, AppBackground.AURORA.name) ?: AppBackground.AURORA.name)
     }
     var glassOpacity by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_OPACITY, defaultGlass.opacity)) }
     var glassBlur by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_BLUR, defaultGlass.blur)) }
     val selectedTheme = runCatching { AppTheme.valueOf(currentTheme) }.getOrDefault(AppTheme.SPACE_BLACK)
-    val selectedBackground = runCatching { AppBackground.valueOf(currentBackground) }.getOrDefault(AppBackground.DARK_GLASS)
+    val selectedBackground = runCatching { AppBackground.valueOf(currentBackground) }.getOrDefault(AppBackground.AURORA)
 
     GlassBackground {
         Scaffold(
@@ -224,7 +224,7 @@ fun ThemeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        listOf(AppBackground.DARK_GLASS, AppBackground.LIGHT_GLASS, AppBackground.AURORA).forEach { background ->
+                        listOf(AppBackground.AURORA, AppBackground.DARK_GLASS, AppBackground.LIGHT_GLASS).forEach { background ->
                             val selected = currentBackground == background.name
                             Button(
                                 onClick = {
