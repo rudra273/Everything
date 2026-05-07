@@ -13,6 +13,9 @@ import com.rudra.everything.feature.expense.data.ExpenseEntryEntity
 import com.rudra.everything.feature.expense.data.ExpenseMonthEntity
 import com.rudra.everything.feature.expense.data.MonthlyBillAmountEntity
 import com.rudra.everything.feature.expense.data.MonthlyBillEntity
+import com.rudra.everything.feature.habit.data.HabitDao
+import com.rudra.everything.feature.habit.data.HabitEntity
+import com.rudra.everything.feature.habit.data.HabitLogEntity
 import com.rudra.everything.feature.keystore.data.KeyStoreEntryDao
 import com.rudra.everything.feature.keystore.data.KeyStoreEntryEntity
 import com.rudra.everything.feature.notes.data.SecureNoteDao
@@ -29,8 +32,10 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         MonthlyBillAmountEntity::class,
         ExpenseMonthEntity::class,
         SecureNoteEntity::class,
+        HabitEntity::class,
+        HabitLogEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class EverythingDatabase : RoomDatabase() {
@@ -39,6 +44,7 @@ abstract class EverythingDatabase : RoomDatabase() {
     abstract fun secureSettingDao(): SecureSettingDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun secureNoteDao(): SecureNoteDao
+    abstract fun habitDao(): HabitDao
 
     companion object {
         fun create(
@@ -60,6 +66,7 @@ abstract class EverythingDatabase : RoomDatabase() {
                     MIGRATION_4_5,
                     MIGRATION_5_6,
                     MIGRATION_6_7,
+                    MIGRATION_7_8,
                     MIGRATION_7_6,
                 )
                 .build()
@@ -296,6 +303,52 @@ abstract class EverythingDatabase : RoomDatabase() {
                 )
                 db.execSQL("DROP TABLE `locked_apps`")
                 db.execSQL("ALTER TABLE `locked_apps_v6` RENAME TO `locked_apps`")
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `habits` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `habitId` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `kind` TEXT NOT NULL,
+                        `goalType` TEXT NOT NULL,
+                        `targetMinutes` INTEGER NOT NULL,
+                        `targetCount` INTEGER NOT NULL,
+                        `unitLabel` TEXT NOT NULL,
+                        `colorIndex` INTEGER NOT NULL,
+                        `reminderEnabled` INTEGER NOT NULL,
+                        `reminderHour` INTEGER NOT NULL,
+                        `reminderMinute` INTEGER NOT NULL,
+                        `active` INTEGER NOT NULL,
+                        `createdAtMillis` INTEGER NOT NULL,
+                        `updatedAtMillis` INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_habits_habitId` ON `habits` (`habitId`)")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `habit_logs` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `logId` TEXT NOT NULL,
+                        `habitId` TEXT NOT NULL,
+                        `date` TEXT NOT NULL,
+                        `minutes` INTEGER NOT NULL,
+                        `progressCount` INTEGER NOT NULL,
+                        `completed` INTEGER NOT NULL,
+                        `relapse` INTEGER NOT NULL,
+                        `note` TEXT NOT NULL,
+                        `createdAtMillis` INTEGER NOT NULL,
+                        `updatedAtMillis` INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_habit_logs_logId` ON `habit_logs` (`logId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_habit_logs_habitId_date` ON `habit_logs` (`habitId`, `date`)")
             }
         }
     }

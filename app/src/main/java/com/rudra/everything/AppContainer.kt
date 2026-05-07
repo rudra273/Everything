@@ -17,6 +17,8 @@ import com.rudra.everything.feature.applock.data.AppLockRepository
 import com.rudra.everything.feature.applock.domain.InstalledAppProvider
 import com.rudra.everything.feature.expense.data.ExpenseBackupContributor
 import com.rudra.everything.feature.expense.data.ExpenseRepository
+import com.rudra.everything.feature.habit.data.HabitBackupContributor
+import com.rudra.everything.feature.habit.data.HabitRepository
 import com.rudra.everything.feature.keystore.data.KeyStoreBackupContributor
 import com.rudra.everything.feature.keystore.data.KeyStoreRepository
 import com.rudra.everything.feature.notes.data.SecureNoteBackupContributor
@@ -53,6 +55,10 @@ class AppContainer(context: Context) {
         SecureNoteRepository(database.secureNoteDao(), sensitiveValueCipher)
     }
 
+    val habitRepository: HabitRepository by lazy {
+        HabitRepository(database.habitDao())
+    }
+
     val backupService: EverythingBackupService by lazy {
         EverythingBackupService(
             crypto = BackupCrypto(PasswordHasher()),
@@ -61,6 +67,7 @@ class AppContainer(context: Context) {
                 KeyStoreBackupContributor(keyStoreRepository),
                 ExpenseBackupContributor(expenseRepository),
                 SecureNoteBackupContributor(secureNoteRepository),
+                HabitBackupContributor(habitRepository),
             ),
         )
     }

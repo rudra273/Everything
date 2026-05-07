@@ -1,0 +1,1252 @@
+package com.rudra.everything.feature.habit.ui
+
+import android.Manifest
+import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.SelfImprovement
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rudra.everything.AppContainer
+import com.rudra.everything.core.ui.Cyan
+import com.rudra.everything.core.ui.DangerRed
+import com.rudra.everything.core.ui.GlassBackground
+import com.rudra.everything.core.ui.GlassFilterButton
+import com.rudra.everything.core.ui.MutedText
+import com.rudra.everything.core.ui.PrimaryButton
+import com.rudra.everything.core.ui.SecondaryButton
+import com.rudra.everything.core.ui.SoftText
+import com.rudra.everything.core.ui.Stroke
+import com.rudra.everything.core.ui.glassSurface
+import com.rudra.everything.feature.habit.data.Habit
+import com.rudra.everything.feature.habit.data.HabitDashboard
+import com.rudra.everything.feature.habit.data.HabitGoalType
+import com.rudra.everything.feature.habit.data.HabitKind
+import com.rudra.everything.feature.habit.data.HabitLog
+import com.rudra.everything.feature.habit.reminder.HabitReminderScheduler
+import kotlinx.coroutines.launch
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
+
+private enum class HabitTab {
+    Today,
+    Habits,
+    Calendar,
+    Quit,
+}
+
+private val quotes = listOf(
+    "Small steps count when they repeat.",
+    "Do the next honest minute.",
+    "Your streak is built today, not someday.",
+    "Progress likes proof. Give it one check.",
+    "Win the day softly, then repeat.",
+)
+
+@Composable
+fun HabitScreen(
+    container: AppContainer,
+    onBack: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val scheduler = remember(context) { HabitReminderScheduler(context) }
+    val dashboard by container.habitRepository
+        .observeDashboard()
+        .collectAsStateWithLifecycle(initialValue = null)
+    var selectedTab by remember { mutableStateOf(HabitTab.Today) }
+    var addOpen by remember { mutableStateOf(false) }
+    var editHabit by remember { mutableStateOf<Habit?>(null) }
+    var logHabit by remember { mutableStateOf<Habit?>(null) }
+    var relapseHabit by remember { mutableStateOf<Habit?>(null) }
+    var selectedMonth by remember { mutableStateOf(YearMonth.now()) }
+
+    BackHandler(onBack = onBack)
+
+    GlassBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(WindowInsets.statusBars.asPaddingValues())
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            HabitTopBar(onBack = onBack, onAdd = { addOpen = true })
+            HabitTabs(selectedTab = selectedTab, onTabChange = { selectedTab = it })
+
+            when (val current = dashboard) {
+                null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Cyan)
+                }
+
+                else -> when (selectedTab) {
+                    HabitTab.Today -> TodayTab(
+                        dashboard = current,
+                        onLog = { logHabit = it },
+                        onAdd = { addOpen = true },
+                    )
+                    HabitTab.Habits -> HabitsTab(
+                        dashboard = current,
+                        onAdd = { addOpen = true },
+                        onEdit = { editHabit = it },
+                        onDelete = { habit ->
+                            scope.launch {
+                                scheduler.cancel(habit.habitId)
+                                container.habitRepository.deleteHabit(habit.habitId)
+                            }
+                        },
+                    )
+                    HabitTab.Calendar -> CalendarTab(
+                        dashboard = current,
+                        selectedMonth = selectedMonth,
+                        onPrevious = { selectedMonth = selectedMonth.minusMonths(1) },
+                        onNext = { selectedMonth = selectedMonth.plusMonths(1) },
+                    )
+                    HabitTab.Quit -> QuitTab(
+                        dashboard = current,
+                        onAdd = { addOpen = true },
+                        onRelapse = { relapseHabit = it },
+                        onEdit = { editHabit = it },
+                    )
+                }
+            }
+        }
+    }
+
+    if (addOpen) {
+        HabitEditorDialog(
+            habit = null,
+            onDismiss = { addOpen = false },
+            onSave = { draft ->
+                scope.launch {
+                    val habit = container.habitRepository.addHabit(
+                        name = draft.name,
+                        kind = draft.kind,
+                        goalType = draft.goalType,
+                        targetMinutes = draft.targetMinutes,
+                        targetCount = draft.targetCount,
+                        unitLabel = draft.unitLabel,
+                        colorIndex = draft.colorIndex,
+                        reminderEnabled = draft.reminderEnabled,
+                        reminderHour = draft.reminderHour,
+                        reminderMinute = draft.reminderMinute,
+                    )
+                    scheduler.schedule(habit)
+                    requestNotificationPermissionIfNeeded(context as? Activity)
+                    addOpen = false
+                }
+            },
+        )
+    }
+
+    editHabit?.let { habit ->
+        HabitEditorDialog(
+            habit = habit,
+            onDismiss = { editHabit = null },
+            onSave = { draft ->
+                scope.launch {
+                    container.habitRepository.updateHabit(
+                        habitId = habit.habitId,
+                        name = draft.name,
+                        goalType = draft.goalType,
+                        targetMinutes = draft.targetMinutes,
+                        targetCount = draft.targetCount,
+                        unitLabel = draft.unitLabel,
+                        colorIndex = draft.colorIndex,
+                        reminderEnabled = draft.reminderEnabled,
+                        reminderHour = draft.reminderHour,
+                        reminderMinute = draft.reminderMinute,
+                        active = draft.active,
+                    )
+                    scheduler.schedule(
+                        habit.copy(
+                            name = draft.name,
+                            goalType = draft.goalType,
+                            targetMinutes = draft.targetMinutes,
+                            targetCount = draft.targetCount,
+                            unitLabel = draft.unitLabel,
+                            colorIndex = draft.colorIndex,
+                            reminderEnabled = draft.reminderEnabled,
+                            reminderHour = draft.reminderHour,
+                            reminderMinute = draft.reminderMinute,
+                            active = draft.active,
+                        ),
+                    )
+                    requestNotificationPermissionIfNeeded(context as? Activity)
+                    editHabit = null
+                }
+            },
+        )
+    }
+
+    logHabit?.let { habit ->
+        ProgressDialog(
+            habit = habit,
+            existing = dashboard?.logFor(habit.habitId),
+            onDismiss = { logHabit = null },
+            onSave = { minutes, count, note ->
+                val completed = isGoalComplete(habit, minutes, count, checked = true)
+                scope.launch {
+                    container.habitRepository.saveDailyProgress(
+                        habitId = habit.habitId,
+                        date = LocalDate.now(),
+                        minutes = minutes,
+                        progressCount = count,
+                        completed = completed,
+                        note = note,
+                    )
+                    logHabit = null
+                }
+            },
+        )
+    }
+
+    relapseHabit?.let { habit ->
+        RelapseDialog(
+            habit = habit,
+            onDismiss = { relapseHabit = null },
+            onSave = { note ->
+                scope.launch {
+                    container.habitRepository.addRelapse(habit.habitId, LocalDate.now(), note)
+                    relapseHabit = null
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun HabitTopBar(onBack: () -> Unit, onAdd: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Habit", color = SoftText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Build good days. Leave bad loops.", color = MutedText, style = MaterialTheme.typography.bodySmall)
+        }
+        IconButton(onClick = onAdd, modifier = Modifier.size(40.dp)) {
+            Icon(Icons.Rounded.Add, contentDescription = "Add habit", tint = Cyan)
+        }
+    }
+}
+
+@Composable
+private fun HabitTabs(selectedTab: HabitTab, onTabChange: (HabitTab) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        HabitTab.values().forEach { tab ->
+            GlassFilterButton(
+                text = tab.name,
+                selected = selectedTab == tab,
+                modifier = Modifier.weight(1f),
+                onClick = { onTabChange(tab) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun TodayTab(
+    dashboard: HabitDashboard,
+    onLog: (Habit) -> Unit,
+    onAdd: () -> Unit,
+) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+        item {
+            QuoteCard(dashboard = dashboard)
+        }
+        if (dashboard.buildHabits.isEmpty()) {
+            item {
+                EmptyHabitCard(
+                    title = "No habits yet",
+                    subtitle = "Add coding, gym, reading, math, building, or anything you want to repeat.",
+                    onAdd = onAdd,
+                )
+            }
+        } else {
+            items(dashboard.buildHabits, key = { it.habitId }) { habit ->
+                DailyHabitRow(
+                    habit = habit,
+                    log = dashboard.logFor(habit.habitId),
+                    streak = buildStreak(habit, dashboard.logs, dashboard.today),
+                    onClick = { onLog(habit) },
+                )
+            }
+            item {
+                WeeklyBarsCard(dashboard = dashboard)
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuoteCard(dashboard: HabitDashboard) {
+    val quote = remember(dashboard.today) { quotes[dashboard.today.dayOfYear % quotes.size] }
+    val completedToday = dashboard.buildHabits.count { habit ->
+        isLogComplete(habit, dashboard.logFor(habit.habitId))
+    }
+    StatCard {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            IconCircle(Icons.Rounded.SelfImprovement, Cyan)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(quote, color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "${formatMinutes(dashboard.todayMinutes)} today • $completedToday/${dashboard.buildHabits.size} checked",
+                    color = MutedText,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyHabitRow(
+    habit: Habit,
+    log: HabitLog?,
+    streak: Int,
+    onClick: () -> Unit,
+) {
+    val completed = isLogComplete(habit, log)
+    val progress = habitProgress(habit, log)
+    StatCard(modifier = Modifier.clickable(onClick = onClick)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(if (completed) habitColor(habit.colorIndex) else Color.White.copy(alpha = 0.08f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (completed) Icons.Rounded.Check else Icons.Rounded.RadioButtonUnchecked,
+                    contentDescription = null,
+                    tint = if (completed) Color.White else MutedText,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(habit.name, color = SoftText, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${(progress * 100).roundToInt()}%", color = MutedText, style = MaterialTheme.typography.labelMedium)
+                }
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(99.dp)),
+                    color = habitColor(habit.colorIndex),
+                    trackColor = Color.White.copy(alpha = 0.10f),
+                )
+                Text(
+                    "${progressText(habit, log)} • $streak day streak",
+                    color = MutedText,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HabitsTab(
+    dashboard: HabitDashboard,
+    onAdd: () -> Unit,
+    onEdit: (Habit) -> Unit,
+    onDelete: (Habit) -> Unit,
+) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+        item {
+            PrimaryButton(
+                text = "Add Habit",
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = {
+                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                },
+                onClick = onAdd,
+            )
+        }
+        items(dashboard.habits, key = { it.habitId }) { habit ->
+            HabitManageCard(
+                habit = habit,
+                logs = dashboard.logs,
+                today = dashboard.today,
+                onEdit = { onEdit(habit) },
+                onDelete = { onDelete(habit) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun HabitManageCard(
+    habit: Habit,
+    logs: List<HabitLog>,
+    today: LocalDate,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val streak = if (habit.kind == HabitKind.Quit) quitCleanDays(habit, logs, today) else buildStreak(habit, logs, today)
+    StatCard {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            IconCircle(if (habit.kind == HabitKind.Quit) Icons.Rounded.Close else Icons.Rounded.Flag, habitColor(habit.colorIndex))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(habit.name, color = SoftText, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    "${habit.kind.name} • ${habitGoalText(habit)} • $streak day ${if (habit.kind == HabitKind.Quit) "clean" else "streak"}",
+                    color = MutedText,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (habit.reminderEnabled) {
+                    Text("Reminder ${timeText(habit.reminderHour, habit.reminderMinute)}", color = MutedText, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Rounded.Edit, contentDescription = "Edit", tint = SoftText)
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Rounded.Delete, contentDescription = "Delete", tint = DangerRed)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalendarTab(
+    dashboard: HabitDashboard,
+    selectedMonth: YearMonth,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+        item {
+            StatCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onPrevious) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Previous", tint = SoftText)
+                    }
+                    Text(
+                        selectedMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
+                        color = SoftText,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = onNext) {
+                        Icon(Icons.Rounded.Event, contentDescription = "Next", tint = Cyan)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                MonthHeatmap(dashboard = dashboard, month = selectedMonth)
+            }
+        }
+        item {
+            WeeklyBarsCard(dashboard = dashboard)
+        }
+    }
+}
+
+@Composable
+private fun MonthHeatmap(dashboard: HabitDashboard, month: YearMonth) {
+    val firstDay = month.atDay(1)
+    val offset = (firstDay.dayOfWeek.value % 7)
+    val days = month.lengthOfMonth()
+    val cells = offset + days
+    val rows = (cells + 6) / 7
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            listOf("S", "M", "T", "W", "T", "F", "S").forEach {
+                Text(it, color = MutedText, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            }
+        }
+        repeat(rows) { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                repeat(7) { column ->
+                    val dayNumber = row * 7 + column - offset + 1
+                    val date = if (dayNumber in 1..days) month.atDay(dayNumber) else null
+                    val segments = if (date == null) emptyList() else daySegments(dashboard, date)
+                    val progress = if (date == null) 0f else dayProgress(dashboard, date)
+                    val relapse = date != null && dashboard.logs.any { it.date == date.toString() && it.relapse }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                when {
+                                    date == null -> Color.Transparent
+                                    relapse -> DangerRed.copy(alpha = 0.45f)
+                                    progress > 0f -> Color.White.copy(alpha = 0.08f)
+                                    else -> Color.White.copy(alpha = 0.06f)
+                                },
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (date != null) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Text(dayNumber.toString(), color = SoftText, style = MaterialTheme.typography.labelSmall)
+                                if (segments.isNotEmpty()) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        segments.take(3).forEach { segment ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(width = 8.dp, height = 3.dp)
+                                                    .clip(RoundedCornerShape(99.dp))
+                                                    .background(segment.color.copy(alpha = 0.45f + segment.progress * 0.55f)),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (dashboard.buildHabits.isNotEmpty()) {
+            HabitLegend(dashboard.buildHabits)
+        }
+    }
+}
+
+@Composable
+private fun QuitTab(
+    dashboard: HabitDashboard,
+    onAdd: () -> Unit,
+    onRelapse: (Habit) -> Unit,
+    onEdit: (Habit) -> Unit,
+) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+        if (dashboard.quitHabits.isEmpty()) {
+            item {
+                EmptyHabitCard(
+                    title = "Leave a bad habit",
+                    subtitle = "Track clean days for smoking, porn, junk food, alcohol, or any loop you want to break.",
+                    onAdd = onAdd,
+                )
+            }
+        } else {
+            items(dashboard.quitHabits, key = { it.habitId }) { habit ->
+                QuitHabitCard(
+                    habit = habit,
+                    cleanDays = quitCleanDays(habit, dashboard.logs, dashboard.today),
+                    best = bestQuitStreak(habit, dashboard.logs, dashboard.today),
+                    relapses = dashboard.relapsesFor(habit.habitId).size,
+                    onRelapse = { onRelapse(habit) },
+                    onEdit = { onEdit(habit) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuitHabitCard(
+    habit: Habit,
+    cleanDays: Int,
+    best: Int,
+    relapses: Int,
+    onRelapse: () -> Unit,
+    onEdit: () -> Unit,
+) {
+    StatCard {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            IconCircle(Icons.Rounded.LocalFireDepartment, habitColor(habit.colorIndex))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(habit.name, color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("$cleanDays days clean • Best $best • Relapses $relapses", color = MutedText, style = MaterialTheme.typography.bodySmall)
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Rounded.Edit, contentDescription = "Edit", tint = SoftText)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        SecondaryButton(text = "I relapsed", modifier = Modifier.fillMaxWidth(), onClick = onRelapse)
+    }
+}
+
+@Composable
+private fun WeeklyBarsCard(dashboard: HabitDashboard) {
+    val today = dashboard.today
+    val start = today.with(DayOfWeek.MONDAY)
+    val dailySegments = (0..6).map { offset ->
+        val date = start.plusDays(offset.toLong())
+        dashboard.buildHabits.mapNotNull { habit ->
+            val minutes = dashboard.logFor(habit.habitId, date)?.minutes ?: 0
+            if (minutes > 0) HabitBarSegment(habit.habitId, habitColor(habit.colorIndex), minutes) else null
+        }
+    }
+    val values = dailySegments.map { segments -> segments.sumOf { it.minutes } }
+    val maxValue = values.maxOrNull()?.coerceAtLeast(60) ?: 60
+    StatCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Weekly Time", color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(formatMinutes(values.sum()), color = MutedText, style = MaterialTheme.typography.bodySmall)
+        }
+        Spacer(Modifier.height(12.dp))
+        Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+            val gap = 10.dp.toPx()
+            val barWidth = (size.width - gap * 6) / 7
+            dailySegments.forEachIndexed { index, segments ->
+                val value = segments.sumOf { it.minutes }
+                val height = (size.height * (value.toFloat() / maxValue)).coerceAtLeast(if (value > 0) 6f else 0f)
+                val left = index * (barWidth + gap)
+                drawRoundRect(
+                    color = Color.White.copy(alpha = 0.08f),
+                    topLeft = androidx.compose.ui.geometry.Offset(left, 0f),
+                    size = androidx.compose.ui.geometry.Size(barWidth, size.height),
+                    cornerRadius = CornerRadius(12f, 12f),
+                )
+                var bottom = size.height
+                segments.forEach { segment ->
+                    val segmentHeight = height * (segment.minutes.toFloat() / value.coerceAtLeast(1))
+                    drawRoundRect(
+                        color = segment.color.copy(alpha = 0.82f),
+                        topLeft = androidx.compose.ui.geometry.Offset(left, bottom - segmentHeight),
+                        size = androidx.compose.ui.geometry.Size(barWidth, segmentHeight),
+                        cornerRadius = CornerRadius(12f, 12f),
+                    )
+                    bottom -= segmentHeight
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            listOf("M", "T", "W", "T", "F", "S", "S").forEach {
+                Text(it, color = MutedText, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            }
+        }
+        if (dashboard.buildHabits.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            HabitLegend(dashboard.buildHabits)
+        }
+    }
+}
+
+@Composable
+private fun HabitLegend(habits: List<Habit>) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        habits.chunked(2).forEach { rowHabits ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                rowHabits.forEach { habit ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(habitColor(habit.colorIndex)),
+                        )
+                        Text(
+                            habit.name,
+                            color = MutedText,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                if (rowHabits.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyHabitCard(title: String, subtitle: String, onAdd: () -> Unit) {
+    StatCard {
+        Text(title, color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        Text(subtitle, color = MutedText, style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(12.dp))
+        PrimaryButton(text = "Add Habit", modifier = Modifier.fillMaxWidth(), onClick = onAdd)
+    }
+}
+
+@Composable
+private fun StatCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(18.dp), tintStrength = 0.12f)
+            .padding(14.dp),
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun IconCircle(icon: ImageVector, color: Color) {
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clip(CircleShape)
+            .background(color.copy(alpha = 0.20f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
+    }
+}
+
+private data class HabitDraft(
+    val name: String,
+    val kind: HabitKind,
+    val goalType: HabitGoalType,
+    val targetMinutes: Int,
+    val targetCount: Int,
+    val unitLabel: String,
+    val colorIndex: Int,
+    val reminderEnabled: Boolean,
+    val reminderHour: Int,
+    val reminderMinute: Int,
+    val active: Boolean,
+)
+
+@Composable
+private fun HabitEditorDialog(
+    habit: Habit?,
+    onDismiss: () -> Unit,
+    onSave: (HabitDraft) -> Unit,
+) {
+    var name by remember { mutableStateOf(habit?.name ?: "") }
+    var kind by remember { mutableStateOf(habit?.kind ?: HabitKind.Build) }
+    var goalType by remember { mutableStateOf(habit?.goalType ?: HabitGoalType.Time) }
+    var targetMinutes by remember { mutableStateOf((habit?.targetMinutes ?: 60).takeIf { it > 0 }?.toString() ?: "") }
+    var targetCount by remember { mutableStateOf((habit?.targetCount ?: 1).takeIf { it > 0 }?.toString() ?: "") }
+    var unitLabel by remember { mutableStateOf(habit?.unitLabel ?: "times") }
+    var colorIndex by remember { mutableStateOf(habit?.colorIndex ?: 0) }
+    var reminderEnabled by remember { mutableStateOf(habit?.reminderEnabled ?: false) }
+    var reminderHour by remember { mutableStateOf((habit?.reminderHour ?: 20).toString()) }
+    var reminderMinute by remember { mutableStateOf((habit?.reminderMinute ?: 0).toString().padStart(2, '0')) }
+    var active by remember { mutableStateOf(habit?.active ?: true) }
+    val canSave = name.trim().isNotBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                enabled = canSave,
+                onClick = {
+                    onSave(
+                        HabitDraft(
+                            name = name,
+                            kind = kind,
+                            goalType = if (kind == HabitKind.Quit) HabitGoalType.Check else goalType,
+                            targetMinutes = targetMinutes.toIntOrNull() ?: 0,
+                            targetCount = targetCount.toIntOrNull() ?: 0,
+                            unitLabel = unitLabel,
+                            colorIndex = colorIndex,
+                            reminderEnabled = reminderEnabled,
+                            reminderHour = reminderHour.toIntOrNull() ?: 20,
+                            reminderMinute = reminderMinute.toIntOrNull() ?: 0,
+                            active = active,
+                        ),
+                    )
+                },
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text(if (habit == null) "Add Habit" else "Edit Habit") },
+        text = {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it.take(40) },
+                        label = { Text("Name") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        colors = habitFieldColors(),
+                    )
+                }
+                if (habit == null) {
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            GlassFilterButton("Build", selected = kind == HabitKind.Build, modifier = Modifier.weight(1f), onClick = { kind = HabitKind.Build })
+                            GlassFilterButton("Quit", selected = kind == HabitKind.Quit, modifier = Modifier.weight(1f), onClick = { kind = HabitKind.Quit })
+                        }
+                    }
+                }
+                if (kind == HabitKind.Build) {
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            HabitGoalType.values().forEach { type ->
+                                GlassFilterButton(type.name, selected = goalType == type, modifier = Modifier.weight(1f), onClick = { goalType = type })
+                            }
+                        }
+                    }
+                    if (goalType == HabitGoalType.Time) {
+                        item {
+                            OutlinedTextField(
+                                value = targetMinutes,
+                                onValueChange = { targetMinutes = it.filter(Char::isDigit).take(4) },
+                                label = { Text("Daily minutes") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = habitFieldColors(),
+                            )
+                        }
+                    }
+                    if (goalType == HabitGoalType.Count) {
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = targetCount,
+                                    onValueChange = { targetCount = it.filter(Char::isDigit).take(4) },
+                                    label = { Text("Daily target") },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    colors = habitFieldColors(),
+                                )
+                                OutlinedTextField(
+                                    value = unitLabel,
+                                    onValueChange = { unitLabel = it.take(16) },
+                                    label = { Text("Unit") },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
+                                    colors = habitFieldColors(),
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Color", color = SoftText, modifier = Modifier.weight(1f))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            habitPalette.indices.chunked(5).forEach { row ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    row.forEach { index ->
+                                        Box(
+                                            modifier = Modifier
+                                                .size(if (colorIndex == index) 30.dp else 24.dp)
+                                                .clip(CircleShape)
+                                                .background(habitColor(index))
+                                                .clickable { colorIndex = index },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Notifications, contentDescription = null, tint = MutedText, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Reminder", color = SoftText, modifier = Modifier.weight(1f))
+                        Switch(checked = reminderEnabled, onCheckedChange = { reminderEnabled = it })
+                    }
+                }
+                if (reminderEnabled) {
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = reminderHour,
+                                onValueChange = { reminderHour = it.filter(Char::isDigit).take(2) },
+                                label = { Text("Hour") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = habitFieldColors(),
+                            )
+                            OutlinedTextField(
+                                value = reminderMinute,
+                                onValueChange = { reminderMinute = it.filter(Char::isDigit).take(2) },
+                                label = { Text("Minute") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = habitFieldColors(),
+                            )
+                        }
+                    }
+                }
+                if (habit != null) {
+                    item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Active", color = SoftText, modifier = Modifier.weight(1f))
+                            Checkbox(checked = active, onCheckedChange = { active = it })
+                        }
+                    }
+                }
+            }
+        },
+        containerColor = Color(0xFF18181B),
+        titleContentColor = SoftText,
+        textContentColor = SoftText,
+    )
+}
+
+@Composable
+private fun ProgressDialog(
+    habit: Habit,
+    existing: HabitLog?,
+    onDismiss: () -> Unit,
+    onSave: (Int, Int, String) -> Unit,
+) {
+    var minutes by remember { mutableStateOf(existing?.minutes?.takeIf { it > 0 }?.toString() ?: "") }
+    var count by remember { mutableStateOf(existing?.progressCount?.takeIf { it > 0 }?.toString() ?: "") }
+    var checked by remember { mutableStateOf(existing?.completed ?: true) }
+    var note by remember { mutableStateOf(existing?.note ?: "") }
+    val parsedMinutes = minutes.toIntOrNull() ?: 0
+    val parsedCount = count.toIntOrNull() ?: 0
+    val derivedCompleted = isGoalComplete(habit, parsedMinutes, parsedCount, checked)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onSave(parsedMinutes, parsedCount, note) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text(habit.name) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (habit.goalType == HabitGoalType.Time) {
+                    OutlinedTextField(
+                        value = minutes,
+                        onValueChange = { minutes = it.filter(Char::isDigit).take(4) },
+                        label = { Text("Time spent in minutes") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = habitFieldColors(),
+                    )
+                    Text(
+                        "${(habitProgress(habit, temporaryLog(habit, parsedMinutes, parsedCount, derivedCompleted)) * 100).roundToInt()}% complete",
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (habit.goalType == HabitGoalType.Count) {
+                    OutlinedTextField(
+                        value = count,
+                        onValueChange = { count = it.filter(Char::isDigit).take(4) },
+                        label = { Text("Progress (${habit.unitLabel})") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = habitFieldColors(),
+                    )
+                    Text(
+                        "${(habitProgress(habit, temporaryLog(habit, parsedMinutes, parsedCount, derivedCompleted)) * 100).roundToInt()}% complete",
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (habit.goalType == HabitGoalType.Check) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Mark complete", color = SoftText, modifier = Modifier.weight(1f))
+                        Checkbox(checked = checked, onCheckedChange = { checked = it })
+                    }
+                } else {
+                    Text(
+                        if (derivedCompleted) "This will check today's habit." else "Saved as partial progress.",
+                        color = if (derivedCompleted) habitColor(habit.colorIndex) else MutedText,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it.take(160) },
+                    label = { Text("Note optional") },
+                    colors = habitFieldColors(),
+                )
+            }
+        },
+        containerColor = Color(0xFF18181B),
+        titleContentColor = SoftText,
+        textContentColor = SoftText,
+    )
+}
+
+@Composable
+private fun RelapseDialog(
+    habit: Habit,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var note by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = { onSave(note) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Reset ${habit.name}?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("The counter resets, but the history stays. Add a reason if it helps you notice the pattern.", color = MutedText)
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it.take(160) },
+                    label = { Text("Reason optional") },
+                    colors = habitFieldColors(),
+                )
+            }
+        },
+        containerColor = Color(0xFF18181B),
+        titleContentColor = SoftText,
+        textContentColor = SoftText,
+    )
+}
+
+@Composable
+private fun habitFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = Cyan,
+    unfocusedBorderColor = Stroke,
+    focusedTextColor = SoftText,
+    unfocusedTextColor = SoftText,
+    focusedLabelColor = Cyan,
+    unfocusedLabelColor = MutedText,
+    cursorColor = Cyan,
+)
+
+private fun habitProgress(habit: Habit, log: HabitLog?): Float {
+    if (log == null) return 0f
+    return when (habit.goalType) {
+        HabitGoalType.Time -> if (habit.targetMinutes <= 0) {
+            if (log.completed) 1f else 0f
+        } else {
+            log.minutes.toFloat() / habit.targetMinutes
+        }
+        HabitGoalType.Count -> if (habit.targetCount <= 0) {
+            if (log.completed) 1f else 0f
+        } else {
+            log.progressCount.toFloat() / habit.targetCount
+        }
+        HabitGoalType.Check -> if (log.completed) 1f else 0f
+    }.coerceIn(0f, 1f)
+}
+
+private fun isGoalComplete(habit: Habit, minutes: Int, count: Int, checked: Boolean): Boolean {
+    return when (habit.goalType) {
+        HabitGoalType.Time -> if (habit.targetMinutes <= 0) minutes > 0 else minutes >= habit.targetMinutes
+        HabitGoalType.Count -> if (habit.targetCount <= 0) count > 0 else count >= habit.targetCount
+        HabitGoalType.Check -> checked
+    }
+}
+
+private fun isLogComplete(habit: Habit, log: HabitLog?): Boolean {
+    if (log == null) return false
+    return isGoalComplete(
+        habit = habit,
+        minutes = log.minutes,
+        count = log.progressCount,
+        checked = log.completed,
+    )
+}
+
+private fun temporaryLog(habit: Habit, minutes: Int, count: Int, completed: Boolean): HabitLog {
+    return HabitLog(
+        logId = "preview",
+        habitId = habit.habitId,
+        date = LocalDate.now().toString(),
+        minutes = minutes,
+        progressCount = count,
+        completed = completed,
+        relapse = false,
+        note = "",
+        createdAtMillis = 0L,
+        updatedAtMillis = 0L,
+    )
+}
+
+private fun progressText(habit: Habit, log: HabitLog?): String {
+    return when (habit.goalType) {
+        HabitGoalType.Time -> "${formatMinutes(log?.minutes ?: 0)} / ${formatMinutes(habit.targetMinutes)}"
+        HabitGoalType.Count -> "${log?.progressCount ?: 0} / ${habit.targetCount} ${habit.unitLabel}"
+        HabitGoalType.Check -> if (log?.completed == true) "Done today" else "Not checked"
+    }
+}
+
+private fun habitGoalText(habit: Habit): String {
+    return when (habit.goalType) {
+        HabitGoalType.Time -> "${formatMinutes(habit.targetMinutes)} daily"
+        HabitGoalType.Count -> "${habit.targetCount} ${habit.unitLabel} daily"
+        HabitGoalType.Check -> "Daily check"
+    }
+}
+
+private fun buildStreak(habit: Habit, logs: List<HabitLog>, today: LocalDate): Int {
+    var streak = 0
+    var date = today
+    while (true) {
+        val log = logs.lastOrNull { it.habitId == habit.habitId && it.date == date.toString() && !it.relapse }
+        if (isLogComplete(habit, log)) {
+            streak += 1
+            date = date.minusDays(1)
+        } else {
+            return streak
+        }
+    }
+}
+
+private fun quitCleanDays(habit: Habit, logs: List<HabitLog>, today: LocalDate): Int {
+    val lastRelapse = logs
+        .filter { it.habitId == habit.habitId && it.relapse }
+        .maxByOrNull { it.date }
+        ?.date
+        ?.let(LocalDate::parse)
+    val startDate = lastRelapse ?: dateFromMillis(habit.createdAtMillis)
+    return java.time.temporal.ChronoUnit.DAYS.between(startDate, today).toInt().coerceAtLeast(0)
+}
+
+private fun bestQuitStreak(habit: Habit, logs: List<HabitLog>, today: LocalDate): Int {
+    val relapses = logs
+        .filter { it.habitId == habit.habitId && it.relapse }
+        .map { LocalDate.parse(it.date) }
+        .sorted()
+    var best = 0
+    var start = dateFromMillis(habit.createdAtMillis)
+    relapses.forEach { relapse ->
+        best = maxOf(best, java.time.temporal.ChronoUnit.DAYS.between(start, relapse).toInt().coerceAtLeast(0))
+        start = relapse
+    }
+    return maxOf(best, java.time.temporal.ChronoUnit.DAYS.between(start, today).toInt().coerceAtLeast(0))
+}
+
+private fun dayProgress(dashboard: HabitDashboard, date: LocalDate): Float {
+    val buildHabits = dashboard.buildHabits
+    if (buildHabits.isEmpty()) return 0f
+    val total = buildHabits.sumOf { habit ->
+        (habitProgress(habit, dashboard.logFor(habit.habitId, date)) * 100).roundToInt()
+    }
+    return (total.toFloat() / (buildHabits.size * 100)).coerceIn(0f, 1f)
+}
+
+private data class HabitDaySegment(
+    val color: Color,
+    val progress: Float,
+)
+
+private data class HabitBarSegment(
+    val habitId: String,
+    val color: Color,
+    val minutes: Int,
+)
+
+private fun daySegments(dashboard: HabitDashboard, date: LocalDate): List<HabitDaySegment> {
+    return dashboard.buildHabits.mapNotNull { habit ->
+        val progress = habitProgress(habit, dashboard.logFor(habit.habitId, date))
+        if (progress > 0f) HabitDaySegment(habitColor(habit.colorIndex), progress) else null
+    }
+}
+
+private fun formatMinutes(minutes: Int): String {
+    if (minutes <= 0) return "0m"
+    val hours = minutes / 60
+    val mins = minutes % 60
+    return when {
+        hours > 0 && mins > 0 -> "${hours}h ${mins}m"
+        hours > 0 -> "${hours}h"
+        else -> "${mins}m"
+    }
+}
+
+private fun timeText(hour: Int, minute: Int): String = "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
+
+private val habitPalette = listOf(
+    Color(0xFF22C55E),
+    Color(0xFF38BDF8),
+    Color(0xFFF59E0B),
+    Color(0xFFEC4899),
+    Color(0xFFA78BFA),
+    Color(0xFF14B8A6),
+    Color(0xFFFB7185),
+    Color(0xFF818CF8),
+    Color(0xFFEAB308),
+    Color(0xFF2DD4BF),
+)
+
+private fun habitColor(index: Int): Color = habitPalette[index.mod(habitPalette.size)]
+
+private fun dateFromMillis(millis: Long): LocalDate {
+    return Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+}
+
+private fun requestNotificationPermissionIfNeeded(activity: Activity?) {
+    if (activity == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+    if (ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+    ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 49)
+}

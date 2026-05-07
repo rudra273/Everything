@@ -272,6 +272,7 @@ fun DashboardScreen(
     onOpenAppLock: () -> Unit,
     onOpenKeyStore: () -> Unit,
     onOpenNotes: () -> Unit,
+    onOpenHabit: () -> Unit,
     onOpenExpenses: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -400,7 +401,7 @@ fun DashboardScreen(
                     ToolGridItem(
                         iconResId = com.rudra.everything.R.drawable.ic_todo_tracker,
                         title = "Habit",
-                        onClick = { /* Placeholder */ },
+                        onClick = onOpenHabit,
                     )
                 }
                 if (showExpenses) item {

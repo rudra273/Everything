@@ -35,6 +35,7 @@ import com.rudra.everything.feature.applock.ui.DashboardScreen
 import com.rudra.everything.feature.applock.ui.PermissionGrantScreen
 import com.rudra.everything.feature.applock.ui.SetupCredentialScreen
 import com.rudra.everything.feature.expense.ui.ExpenseScreen
+import com.rudra.everything.feature.habit.ui.HabitScreen
 import com.rudra.everything.feature.keystore.ui.KeyStoreScreen
 import com.rudra.everything.feature.notes.ui.SecureNotesScreen
 import com.rudra.everything.feature.settings.ui.BackupRestoreScreen
@@ -72,6 +73,7 @@ private enum class MainRoute {
     AppLock,
     KeyStore,
     Notes,
+    Habit,
     Expenses,
     BackupRestore,
     Settings,
@@ -190,6 +192,7 @@ private fun EverythingApp(
             onOpenAppLock = { route = MainRoute.AppLock },
             onOpenKeyStore = { route = MainRoute.KeyStore },
             onOpenNotes = { route = MainRoute.Notes },
+            onOpenHabit = { route = MainRoute.Habit },
             onOpenExpenses = { route = MainRoute.Expenses },
             onOpenSettings = { route = MainRoute.Settings },
         )
@@ -216,6 +219,11 @@ private fun EverythingApp(
         )
 
         route == MainRoute.Expenses -> ExpenseScreen(
+            container = container,
+            onBack = { route = MainRoute.Dashboard },
+        )
+
+        route == MainRoute.Habit -> HabitScreen(
             container = container,
             onBack = { route = MainRoute.Dashboard },
         )
