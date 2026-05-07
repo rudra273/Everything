@@ -177,7 +177,7 @@ fun ThemeScreen(
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (selected) Cyan.copy(alpha = 0.86f) else Color.White.copy(alpha = 0.06f),
-                                    contentColor = if (selected) Color(0xFF001716) else SoftText,
+                                    contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else SoftText,
                                 ),
                                 contentPadding = PaddingValues(horizontal = 4.dp),
                                 shape = RoundedCornerShape(12.dp),
@@ -233,7 +233,7 @@ fun ThemeScreen(
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (selected) Cyan.copy(alpha = 0.86f) else Color.White.copy(alpha = 0.06f),
-                                    contentColor = if (selected) Color(0xFF001716) else SoftText,
+                                    contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else SoftText,
                                 ),
                                 contentPadding = PaddingValues(horizontal = 4.dp),
                                 shape = RoundedCornerShape(12.dp),

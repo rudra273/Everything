@@ -1,5 +1,6 @@
 package com.rudra.everything.core.ui
 
+import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.foundation.BorderStroke
@@ -33,11 +34,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 
 enum class AppTheme {
     SKY_BLUE,
@@ -111,8 +114,14 @@ fun Modifier.glassSurface(
     val opacity = glass.opacity.coerceIn(0f, 100f) / 100f
     val blur = glass.blur.coerceIn(0f, 100f) / 100f
     val elevationWeight = shadowElevation.coerceIn(0f, 8f) / 8f
-    val tint = if (selected) Cyan else Teal
-    val selectedBoost = if (selected) 0.045f else 0f
+    val theme = LocalAppTheme.current
+    val tint = Teal
+    val selectedBoost = if (selected) 0.012f else 0f
+    val themeGlassTint = when (theme) {
+        AppTheme.SKY_BLUE -> 0.030f
+        AppTheme.ZINC_ROSE -> 0.026f
+        AppTheme.SPACE_BLACK -> 0f
+    }
     val frostAlpha = if (lightBackground) {
         (0.10f + opacity * 0.16f + blur * 0.04f + tintStrength * 0.06f + selectedBoost).coerceIn(0.10f, 0.30f)
     } else {
@@ -134,10 +143,10 @@ fun Modifier.glassSurface(
     } else {
         (0.16f + blur * 0.22f + selectedBoost).coerceIn(0.16f, 0.44f)
     }
-    val tintAlpha = if (selected) {
-        (0.035f + tintStrength * 0.45f).coerceIn(0.035f, 0.09f)
+    val tintAlpha = if (theme == AppTheme.SPACE_BLACK) {
+        (tintStrength * 0.010f * opacity).coerceIn(0f, 0.010f)
     } else {
-        (tintStrength * 0.018f * opacity).coerceIn(0f, 0.016f)
+        (themeGlassTint + tintStrength * 0.012f * opacity).coerceIn(0.018f, 0.042f)
     }
     val shineAlpha = (0.035f + blur * 0.15f).coerceIn(0.035f, 0.19f)
 
@@ -321,10 +330,24 @@ fun EverythingTheme(content: @Composable () -> Unit) {
     
     val currentTheme = try { AppTheme.valueOf(themeName) } catch (e: Exception) { AppTheme.SPACE_BLACK }
     val currentBackground = try { AppBackground.valueOf(backgroundName) } catch (e: Exception) { AppBackground.DARK_GLASS }
+    val useDarkSystemBarIcons = currentBackground == AppBackground.LIGHT_GLASS
     val glassSettings = GlassMorphSettings(
         opacity = glassOpacity,
         blur = glassBlur,
     )
+
+    val window = (context as? Activity)?.window
+    if (window != null) {
+        DisposableEffect(window, useDarkSystemBarIcons) {
+            window.statusBarColor = Color.Transparent.toArgb()
+            window.navigationBarColor = Color.Transparent.toArgb()
+            WindowCompat.getInsetsController(window, window.decorView).apply {
+                isAppearanceLightStatusBars = useDarkSystemBarIcons
+                isAppearanceLightNavigationBars = useDarkSystemBarIcons
+            }
+            onDispose {}
+        }
+    }
     
     CompositionLocalProvider(
         LocalAppTheme provides currentTheme,
@@ -370,7 +393,7 @@ fun PrimaryButton(
         colors = ButtonDefaults.buttonColors(
             containerColor = Cyan,
             disabledContainerColor = PanelAlt,
-            contentColor = Color(0xFF001716),
+            contentColor = MaterialTheme.colorScheme.onPrimary,
             disabledContentColor = MutedText,
         ),
         contentPadding = PaddingValues(horizontal = 20.dp),
