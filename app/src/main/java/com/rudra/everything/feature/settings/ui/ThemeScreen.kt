@@ -44,11 +44,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rudra.everything.core.ui.AppBackground
 import com.rudra.everything.core.ui.AppTheme
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.GlassMorphSettings
 import com.rudra.everything.core.ui.MutedText
+import com.rudra.everything.core.ui.PREF_APP_BACKGROUND
 import com.rudra.everything.core.ui.PREF_APP_THEME
 import com.rudra.everything.core.ui.PREF_GLASS_BLUR
 import com.rudra.everything.core.ui.PREF_GLASS_OPACITY
@@ -60,6 +62,12 @@ private fun AppTheme.displayName(): String = when (this) {
     AppTheme.SPACE_BLACK -> "Space Dark"
     AppTheme.SKY_BLUE -> "Sky Blue"
     AppTheme.ZINC_ROSE -> "Zinc Rose"
+}
+
+private fun AppBackground.displayName(): String = when (this) {
+    AppBackground.DARK_GLASS -> "Dark Glass"
+    AppBackground.LIGHT_GLASS -> "Light Glass"
+    AppBackground.AURORA -> "Aurora"
 }
 
 @Composable
@@ -74,9 +82,13 @@ fun ThemeScreen(
     var currentTheme by remember {
         mutableStateOf(sharedPrefs.getString(PREF_APP_THEME, AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name)
     }
+    var currentBackground by remember {
+        mutableStateOf(sharedPrefs.getString(PREF_APP_BACKGROUND, AppBackground.DARK_GLASS.name) ?: AppBackground.DARK_GLASS.name)
+    }
     var glassOpacity by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_OPACITY, defaultGlass.opacity)) }
     var glassBlur by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_BLUR, defaultGlass.blur)) }
     val selectedTheme = runCatching { AppTheme.valueOf(currentTheme) }.getOrDefault(AppTheme.SPACE_BLACK)
+    val selectedBackground = runCatching { AppBackground.valueOf(currentBackground) }.getOrDefault(AppBackground.DARK_GLASS)
 
     GlassBackground {
         Scaffold(
@@ -175,6 +187,62 @@ fun ThemeScreen(
                             ) {
                                 Text(
                                     text = theme.displayName(),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    "BACKGROUND",
+                    color = SoftText,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassSurface(
+                            shape = RoundedCornerShape(18.dp),
+                            selected = false,
+                            tintStrength = 0.08f,
+                            shadowElevation = 2f,
+                        )
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text = selectedBackground.displayName(),
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(AppBackground.DARK_GLASS, AppBackground.LIGHT_GLASS, AppBackground.AURORA).forEach { background ->
+                            val selected = currentBackground == background.name
+                            Button(
+                                onClick = {
+                                    sharedPrefs.edit().putString(PREF_APP_BACKGROUND, background.name).apply()
+                                    currentBackground = background.name
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (selected) Cyan.copy(alpha = 0.86f) else Color.White.copy(alpha = 0.06f),
+                                    contentColor = if (selected) Color(0xFF001716) else SoftText,
+                                ),
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp),
+                            ) {
+                                Text(
+                                    text = background.displayName(),
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                     maxLines = 1,
                                 )

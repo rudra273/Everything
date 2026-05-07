@@ -45,7 +45,14 @@ enum class AppTheme {
     SPACE_BLACK,
 }
 
+enum class AppBackground {
+    DARK_GLASS,
+    LIGHT_GLASS,
+    AURORA,
+}
+
 const val PREF_APP_THEME = "app_theme"
+const val PREF_APP_BACKGROUND = "app_background"
 const val PREF_GLASS_OPACITY = "glass_opacity"
 const val PREF_GLASS_BLUR = "glass_blur"
 
@@ -58,28 +65,31 @@ data class GlassMorphSettings(
 )
 
 val LocalAppTheme = staticCompositionLocalOf { AppTheme.SPACE_BLACK }
+val LocalAppBackground = staticCompositionLocalOf { AppBackground.DARK_GLASS }
 val LocalGlassMorphSettings = staticCompositionLocalOf { GlassMorphSettings() }
+
+val IsLightBackground @Composable get() = LocalAppBackground.current == AppBackground.LIGHT_GLASS
 
 val Cyan @Composable get() = when (LocalAppTheme.current) {
     AppTheme.SKY_BLUE -> Color(0xFF38BDF8)
     AppTheme.ZINC_ROSE -> Color(0xFFF43F5E)
-    AppTheme.SPACE_BLACK -> Color(0xFFE5E7EB)
+    AppTheme.SPACE_BLACK -> if (IsLightBackground) Color(0xFF0F172A) else Color(0xFFE5E7EB)
 }
 val Teal @Composable get() = when (LocalAppTheme.current) {
     AppTheme.SKY_BLUE -> Color(0xFF7DD3FC)
     AppTheme.ZINC_ROSE -> Color(0xFFFB7185)
-    AppTheme.SPACE_BLACK -> Color(0xFF9CA3AF)
+    AppTheme.SPACE_BLACK -> if (IsLightBackground) Color(0xFF334155) else Color(0xFF9CA3AF)
 }
-val DeepBackground @Composable get() = Color(0xFF09090B)
-val Panel @Composable get() = Color(0xFF18181B)
-val PanelAlt @Composable get() = Color(0xFF27272A)
-val SoftText @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFFF1F5F9) else Color(0xFFFAFAFA)
+val DeepBackground @Composable get() = if (IsLightBackground) Color(0xFFF8FAFC) else Color(0xFF09090B)
+val Panel @Composable get() = if (IsLightBackground) Color(0xFFE2E8F0) else Color(0xFF18181B)
+val PanelAlt @Composable get() = if (IsLightBackground) Color(0xFFCBD5E1) else Color(0xFF27272A)
+val SoftText @Composable get() = if (IsLightBackground) Color(0xFF0F172A) else if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFFF1F5F9) else Color(0xFFFAFAFA)
 val MutedText @Composable get() = when (LocalAppTheme.current) {
-    AppTheme.SKY_BLUE -> Color(0xFF64748B)
-    AppTheme.ZINC_ROSE -> Color(0xFF71717A)
-    AppTheme.SPACE_BLACK -> Color(0xFFA1A1AA)
+    AppTheme.SKY_BLUE -> if (IsLightBackground) Color(0xFF475569) else Color(0xFF64748B)
+    AppTheme.ZINC_ROSE -> if (IsLightBackground) Color(0xFF64748B) else Color(0xFF71717A)
+    AppTheme.SPACE_BLACK -> if (IsLightBackground) Color(0xFF475569) else Color(0xFFA1A1AA)
 }
-val Stroke @Composable get() = Color(0xFF27272A)
+val Stroke @Composable get() = if (IsLightBackground) Color(0xFFCBD5E1) else Color(0xFF27272A)
 val Amber @Composable get() = Cyan
 val DangerRed @Composable get() = if (LocalAppTheme.current == AppTheme.SKY_BLUE) Color(0xFFF87171) else Color(0xFFF43F5E)
 
@@ -97,16 +107,33 @@ fun Modifier.glassSurface(
     shadowElevation: Float = 4f,
 ): Modifier {
     val glass = LocalGlassMorphSettings.current
+    val lightBackground = IsLightBackground
     val opacity = glass.opacity.coerceIn(0f, 100f) / 100f
     val blur = glass.blur.coerceIn(0f, 100f) / 100f
     val elevationWeight = shadowElevation.coerceIn(0f, 8f) / 8f
     val tint = if (selected) Cyan else Teal
     val selectedBoost = if (selected) 0.045f else 0f
-    val frostAlpha = (0.035f + opacity * 0.18f + blur * 0.055f + tintStrength * 0.08f + selectedBoost).coerceIn(0.035f, 0.24f)
-    val topLightAlpha = (0.10f + blur * 0.16f + selectedBoost).coerceIn(0.10f, 0.30f)
+    val frostAlpha = if (lightBackground) {
+        (0.10f + opacity * 0.16f + blur * 0.04f + tintStrength * 0.06f + selectedBoost).coerceIn(0.10f, 0.30f)
+    } else {
+        (0.035f + opacity * 0.18f + blur * 0.055f + tintStrength * 0.08f + selectedBoost).coerceIn(0.035f, 0.24f)
+    }
+    val topLightAlpha = if (lightBackground) {
+        (0.20f + blur * 0.18f + selectedBoost).coerceIn(0.20f, 0.42f)
+    } else {
+        (0.10f + blur * 0.16f + selectedBoost).coerceIn(0.10f, 0.30f)
+    }
     val middleClearAlpha = (0.014f + opacity * 0.035f + blur * 0.018f).coerceIn(0.014f, 0.08f)
-    val bottomShadeAlpha = (0.018f + opacity * 0.04f + elevationWeight * 0.018f).coerceIn(0.018f, 0.08f)
-    val rimAlpha = (0.16f + blur * 0.22f + selectedBoost).coerceIn(0.16f, 0.44f)
+    val bottomShadeAlpha = if (lightBackground) {
+        (0.035f + opacity * 0.065f + elevationWeight * 0.022f).coerceIn(0.035f, 0.13f)
+    } else {
+        (0.018f + opacity * 0.04f + elevationWeight * 0.018f).coerceIn(0.018f, 0.08f)
+    }
+    val rimAlpha = if (lightBackground) {
+        (0.28f + blur * 0.28f + selectedBoost).coerceIn(0.28f, 0.58f)
+    } else {
+        (0.16f + blur * 0.22f + selectedBoost).coerceIn(0.16f, 0.44f)
+    }
     val tintAlpha = if (selected) {
         (0.035f + tintStrength * 0.45f).coerceIn(0.035f, 0.09f)
     } else {
@@ -174,47 +201,106 @@ fun GlassBackground(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(DeepBackground)
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        PanelAlt.copy(alpha = 0.18f),
-                        DeepBackground.copy(alpha = 0.88f),
-                        DeepBackground,
-                    )
-                )
-            )
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        Color(0xFF22D3EE).copy(alpha = 0.075f),
-                        Color.Transparent,
-                        Color(0xFFF43F5E).copy(alpha = 0.052f),
-                    )
-                )
-            )
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        Color(0xFFA78BFA).copy(alpha = 0.040f),
-                        Color.Transparent,
-                        Color(0xFF34D399).copy(alpha = 0.030f),
-                    )
-                )
-            ),
-    ) {
+    val background = LocalAppBackground.current
+    val backgroundModifier = when (background) {
+        AppBackground.DARK_GLASS -> modifier.darkGlassBackground()
+        AppBackground.LIGHT_GLASS -> modifier.lightGlassBackground()
+        AppBackground.AURORA -> modifier.auroraGlassBackground()
+    }
+
+    Box(modifier = backgroundModifier) {
         content()
     }
 }
+
+private fun Modifier.darkGlassBackground(): Modifier = this
+    .fillMaxSize()
+    .background(Color(0xFF09090B))
+    .background(
+        Brush.verticalGradient(
+            listOf(
+                Color(0xFF27272A).copy(alpha = 0.18f),
+                Color(0xFF09090B).copy(alpha = 0.88f),
+                Color(0xFF09090B),
+            )
+        )
+    )
+    .background(
+        Brush.linearGradient(
+            listOf(
+                Color(0xFF22D3EE).copy(alpha = 0.075f),
+                Color.Transparent,
+                Color(0xFFF43F5E).copy(alpha = 0.052f),
+            )
+        )
+    )
+    .background(
+        Brush.linearGradient(
+            listOf(
+                Color(0xFFA78BFA).copy(alpha = 0.040f),
+                Color.Transparent,
+                Color(0xFF34D399).copy(alpha = 0.030f),
+            )
+        )
+    )
+
+private fun Modifier.lightGlassBackground(): Modifier = this
+    .fillMaxSize()
+    .background(Color(0xFFF8FAFC))
+    .background(
+        Brush.verticalGradient(
+            listOf(
+                Color(0xFFFFFFFF),
+                Color(0xFFE0F2FE).copy(alpha = 0.70f),
+                Color(0xFFF8FAFC),
+            )
+        )
+    )
+    .background(
+        Brush.linearGradient(
+            listOf(
+                Color(0xFF7DD3FC).copy(alpha = 0.22f),
+                Color.Transparent,
+                Color(0xFFFDA4AF).copy(alpha = 0.18f),
+            )
+        )
+    )
+
+private fun Modifier.auroraGlassBackground(): Modifier = this
+    .fillMaxSize()
+    .background(Color(0xFF050816))
+    .background(
+        Brush.linearGradient(
+            listOf(
+                Color(0xFF22D3EE).copy(alpha = 0.22f),
+                Color(0xFF312E81).copy(alpha = 0.42f),
+                Color(0xFFF43F5E).copy(alpha = 0.18f),
+            )
+        )
+    )
+    .background(
+        Brush.radialGradient(
+            listOf(
+                Color(0xFF34D399).copy(alpha = 0.22f),
+                Color.Transparent,
+            )
+        )
+    )
+    .background(
+        Brush.verticalGradient(
+            listOf(
+                Color.Transparent,
+                Color(0xFF050816).copy(alpha = 0.78f),
+            )
+        )
+    )
 
 @Composable
 fun EverythingTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
     var themeName by remember { mutableStateOf(sharedPrefs.getString(PREF_APP_THEME, AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name) }
+    var backgroundName by remember { mutableStateOf(sharedPrefs.getString(PREF_APP_BACKGROUND, AppBackground.DARK_GLASS.name) ?: AppBackground.DARK_GLASS.name) }
     var glassOpacity by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_OPACITY, DEFAULT_GLASS_OPACITY)) }
     var glassBlur by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_BLUR, DEFAULT_GLASS_BLUR)) }
     
@@ -222,6 +308,7 @@ fun EverythingTheme(content: @Composable () -> Unit) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
             when (key) {
                 PREF_APP_THEME -> themeName = prefs.getString(PREF_APP_THEME, AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name
+                PREF_APP_BACKGROUND -> backgroundName = prefs.getString(PREF_APP_BACKGROUND, AppBackground.DARK_GLASS.name) ?: AppBackground.DARK_GLASS.name
                 PREF_GLASS_OPACITY -> glassOpacity = prefs.getFloat(PREF_GLASS_OPACITY, DEFAULT_GLASS_OPACITY)
                 PREF_GLASS_BLUR -> glassBlur = prefs.getFloat(PREF_GLASS_BLUR, DEFAULT_GLASS_BLUR)
             }
@@ -233,6 +320,7 @@ fun EverythingTheme(content: @Composable () -> Unit) {
     }
     
     val currentTheme = try { AppTheme.valueOf(themeName) } catch (e: Exception) { AppTheme.SPACE_BLACK }
+    val currentBackground = try { AppBackground.valueOf(backgroundName) } catch (e: Exception) { AppBackground.DARK_GLASS }
     val glassSettings = GlassMorphSettings(
         opacity = glassOpacity,
         blur = glassBlur,
@@ -240,13 +328,14 @@ fun EverythingTheme(content: @Composable () -> Unit) {
     
     CompositionLocalProvider(
         LocalAppTheme provides currentTheme,
+        LocalAppBackground provides currentBackground,
         LocalGlassMorphSettings provides glassSettings,
     ) {
         val colors = darkColorScheme(
             primary = Cyan,
-            onPrimary = Color.White,
+            onPrimary = if (IsLightBackground) Color.White else Color(0xFF001716),
             secondary = Teal,
-            onSecondary = Color(0xFF001716),
+            onSecondary = if (IsLightBackground) Color.White else Color(0xFF001716),
             background = DeepBackground,
             onBackground = SoftText,
             surface = Panel,
