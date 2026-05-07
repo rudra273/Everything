@@ -29,6 +29,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,9 +47,14 @@ import androidx.compose.ui.unit.sp
 import com.rudra.everything.core.ui.AppTheme
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
+import com.rudra.everything.core.ui.GlassMorphSettings
 import com.rudra.everything.core.ui.MutedText
+import com.rudra.everything.core.ui.PREF_APP_THEME
+import com.rudra.everything.core.ui.PREF_GLASS_BLUR
+import com.rudra.everything.core.ui.PREF_GLASS_OPACITY
 import com.rudra.everything.core.ui.SoftText
 import com.rudra.everything.core.ui.glassSurface
+import kotlin.math.roundToInt
 
 private fun AppTheme.displayName(): String = when (this) {
     AppTheme.SPACE_BLACK -> "Space Dark"
@@ -63,9 +70,12 @@ fun ThemeScreen(
 
     val context = LocalContext.current
     val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
+    val defaultGlass = remember { GlassMorphSettings() }
     var currentTheme by remember {
-        mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name)
+        mutableStateOf(sharedPrefs.getString(PREF_APP_THEME, AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name)
     }
+    var glassOpacity by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_OPACITY, defaultGlass.opacity)) }
+    var glassBlur by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_BLUR, defaultGlass.blur)) }
     val selectedTheme = runCatching { AppTheme.valueOf(currentTheme) }.getOrDefault(AppTheme.SPACE_BLACK)
 
     GlassBackground {
@@ -150,7 +160,7 @@ fun ThemeScreen(
                             val selected = currentTheme == theme.name
                             Button(
                                 onClick = {
-                                    sharedPrefs.edit().putString("app_theme", theme.name).apply()
+                                    sharedPrefs.edit().putString(PREF_APP_THEME, theme.name).apply()
                                     currentTheme = theme.name
                                 },
                                 colors = ButtonDefaults.buttonColors(
@@ -173,8 +183,101 @@ fun ThemeScreen(
                     }
                 }
 
+                Text(
+                    "GLASS FINISH",
+                    color = SoftText,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassSurface(
+                            shape = RoundedCornerShape(18.dp),
+                            selected = false,
+                            tintStrength = 0.08f,
+                            shadowElevation = 2f,
+                        )
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    GlassControlSlider(
+                        title = "Opacity",
+                        value = glassOpacity,
+                        onValueChange = { value ->
+                            glassOpacity = value
+                            sharedPrefs.edit().putFloat(PREF_GLASS_OPACITY, value).apply()
+                        },
+                        startLabel = "Clear",
+                        endLabel = "Solid",
+                    )
+                    GlassControlSlider(
+                        title = "Blur",
+                        value = glassBlur,
+                        onValueChange = { value ->
+                            glassBlur = value
+                            sharedPrefs.edit().putFloat(PREF_GLASS_BLUR, value).apply()
+                        },
+                        startLabel = "Sharp",
+                        endLabel = "Frosted",
+                    )
+                }
+
                 Spacer(Modifier.height(14.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun GlassControlSlider(
+    title: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    startLabel: String,
+    endLabel: String,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                color = SoftText,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "${value.roundToInt()}%",
+                color = MutedText,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        Slider(
+            value = value.coerceIn(0f, 100f),
+            onValueChange = onValueChange,
+            valueRange = 0f..100f,
+            colors = SliderDefaults.colors(
+                thumbColor = Cyan,
+                activeTrackColor = Cyan,
+                inactiveTrackColor = SoftText.copy(alpha = 0.18f),
+            ),
+        )
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = startLabel,
+                color = MutedText,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = endLabel,
+                color = MutedText,
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
     }
 }

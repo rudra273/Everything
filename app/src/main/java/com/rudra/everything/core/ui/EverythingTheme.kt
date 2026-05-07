@@ -30,6 +30,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -44,7 +45,20 @@ enum class AppTheme {
     SPACE_BLACK,
 }
 
+const val PREF_APP_THEME = "app_theme"
+const val PREF_GLASS_OPACITY = "glass_opacity"
+const val PREF_GLASS_BLUR = "glass_blur"
+
+private const val DEFAULT_GLASS_OPACITY = 42f
+private const val DEFAULT_GLASS_BLUR = 68f
+
+data class GlassMorphSettings(
+    val opacity: Float = DEFAULT_GLASS_OPACITY,
+    val blur: Float = DEFAULT_GLASS_BLUR,
+)
+
 val LocalAppTheme = staticCompositionLocalOf { AppTheme.SPACE_BLACK }
+val LocalGlassMorphSettings = staticCompositionLocalOf { GlassMorphSettings() }
 
 val Cyan @Composable get() = when (LocalAppTheme.current) {
     AppTheme.SKY_BLUE -> Color(0xFF38BDF8)
@@ -80,25 +94,52 @@ fun Modifier.glassSurface(
     shape: RoundedCornerShape,
     selected: Boolean = false,
     tintStrength: Float = 0.10f,
-    @Suppress("UNUSED_PARAMETER") shadowElevation: Float = 4f,
+    shadowElevation: Float = 4f,
 ): Modifier {
+    val glass = LocalGlassMorphSettings.current
+    val opacity = glass.opacity.coerceIn(0f, 100f) / 100f
+    val blur = glass.blur.coerceIn(0f, 100f) / 100f
+    val elevationWeight = shadowElevation.coerceIn(0f, 8f) / 8f
     val tint = if (selected) Cyan else Teal
-    
-    // Smooth gradient for light reflection (glass shine)
-    val topColor = if (selected) tint.copy(alpha = tintStrength + 0.12f) else Color.White.copy(alpha = 0.10f)
-    val bottomColor = if (selected) tint.copy(alpha = tintStrength + 0.02f) else Color.White.copy(alpha = 0.02f)
-    
-    // Subtle edge highlight (rim lighting)
-    val edgeColor = if (selected) tint.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.15f)
+    val selectedBoost = if (selected) 0.045f else 0f
+    val frostAlpha = (0.035f + opacity * 0.18f + blur * 0.055f + tintStrength * 0.08f + selectedBoost).coerceIn(0.035f, 0.24f)
+    val topLightAlpha = (0.10f + blur * 0.16f + selectedBoost).coerceIn(0.10f, 0.30f)
+    val middleClearAlpha = (0.014f + opacity * 0.035f + blur * 0.018f).coerceIn(0.014f, 0.08f)
+    val bottomShadeAlpha = (0.018f + opacity * 0.04f + elevationWeight * 0.018f).coerceIn(0.018f, 0.08f)
+    val rimAlpha = (0.16f + blur * 0.22f + selectedBoost).coerceIn(0.16f, 0.44f)
+    val tintAlpha = if (selected) {
+        (0.035f + tintStrength * 0.45f).coerceIn(0.035f, 0.09f)
+    } else {
+        (tintStrength * 0.018f * opacity).coerceIn(0f, 0.016f)
+    }
+    val shineAlpha = (0.035f + blur * 0.15f).coerceIn(0.035f, 0.19f)
 
     return this
         .clip(shape)
-        .background(
-            Brush.linearGradient(
-                colors = listOf(topColor, bottomColor)
+        .drawWithCache {
+            val verticalGlass = Brush.verticalGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = topLightAlpha),
+                    Color.White.copy(alpha = frostAlpha),
+                    Color.White.copy(alpha = middleClearAlpha),
+                    Color.Black.copy(alpha = bottomShadeAlpha),
+                )
             )
-        )
-        .border(0.5.dp, edgeColor, shape)
+            val topShine = Brush.radialGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = shineAlpha),
+                    Color.Transparent,
+                ),
+                center = androidx.compose.ui.geometry.Offset(size.width * 0.18f, 0f),
+                radius = size.width * 0.95f,
+            )
+            onDrawBehind {
+                drawRect(verticalGlass)
+                drawRect(tint.copy(alpha = tintAlpha))
+                drawRect(topShine)
+            }
+        }
+        .border(0.7.dp, Color.White.copy(alpha = rimAlpha), shape)
 }
 
 @Composable
@@ -140,8 +181,8 @@ fun GlassBackground(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        PanelAlt.copy(alpha = 0.14f),
-                        DeepBackground.copy(alpha = 0.98f),
+                        PanelAlt.copy(alpha = 0.18f),
+                        DeepBackground.copy(alpha = 0.88f),
                         DeepBackground,
                     )
                 )
@@ -149,18 +190,18 @@ fun GlassBackground(
             .background(
                 Brush.linearGradient(
                     listOf(
-                        Teal.copy(alpha = 0.045f),
+                        Color(0xFF22D3EE).copy(alpha = 0.075f),
                         Color.Transparent,
-                        Cyan.copy(alpha = 0.025f),
+                        Color(0xFFF43F5E).copy(alpha = 0.052f),
                     )
                 )
             )
             .background(
                 Brush.linearGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.018f),
+                        Color(0xFFA78BFA).copy(alpha = 0.040f),
                         Color.Transparent,
-                        Color.White.copy(alpha = 0.008f),
+                        Color(0xFF34D399).copy(alpha = 0.030f),
                     )
                 )
             ),
@@ -173,12 +214,16 @@ fun GlassBackground(
 fun EverythingTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
-    var themeName by remember { mutableStateOf(sharedPrefs.getString("app_theme", AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name) }
+    var themeName by remember { mutableStateOf(sharedPrefs.getString(PREF_APP_THEME, AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name) }
+    var glassOpacity by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_OPACITY, DEFAULT_GLASS_OPACITY)) }
+    var glassBlur by remember { mutableStateOf(sharedPrefs.getFloat(PREF_GLASS_BLUR, DEFAULT_GLASS_BLUR)) }
     
     DisposableEffect(sharedPrefs) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
-            if (key == "app_theme") {
-                themeName = prefs.getString("app_theme", AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name
+            when (key) {
+                PREF_APP_THEME -> themeName = prefs.getString(PREF_APP_THEME, AppTheme.SPACE_BLACK.name) ?: AppTheme.SPACE_BLACK.name
+                PREF_GLASS_OPACITY -> glassOpacity = prefs.getFloat(PREF_GLASS_OPACITY, DEFAULT_GLASS_OPACITY)
+                PREF_GLASS_BLUR -> glassBlur = prefs.getFloat(PREF_GLASS_BLUR, DEFAULT_GLASS_BLUR)
             }
         }
         sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
@@ -188,8 +233,15 @@ fun EverythingTheme(content: @Composable () -> Unit) {
     }
     
     val currentTheme = try { AppTheme.valueOf(themeName) } catch (e: Exception) { AppTheme.SPACE_BLACK }
+    val glassSettings = GlassMorphSettings(
+        opacity = glassOpacity,
+        blur = glassBlur,
+    )
     
-    CompositionLocalProvider(LocalAppTheme provides currentTheme) {
+    CompositionLocalProvider(
+        LocalAppTheme provides currentTheme,
+        LocalGlassMorphSettings provides glassSettings,
+    ) {
         val colors = darkColorScheme(
             primary = Cyan,
             onPrimary = Color.White,
