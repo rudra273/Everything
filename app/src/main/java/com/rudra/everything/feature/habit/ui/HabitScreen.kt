@@ -5,7 +5,6 @@ import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -62,7 +61,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -347,7 +345,7 @@ private fun TodayTab(
                 )
             }
             item {
-                WeeklyBarsCard(dashboard = dashboard)
+                WeeklyConsistencyCard(dashboard = dashboard)
             }
         }
     }
@@ -356,9 +354,6 @@ private fun TodayTab(
 @Composable
 private fun QuoteCard(dashboard: HabitDashboard) {
     val quote = remember(dashboard.today) { quotes[dashboard.today.dayOfYear % quotes.size] }
-    val completedToday = dashboard.buildHabits.count { habit ->
-        isLogComplete(habit, dashboard.logFor(habit.habitId))
-    }
     StatCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             IconCircle(Icons.Rounded.SelfImprovement, Cyan)
@@ -366,7 +361,7 @@ private fun QuoteCard(dashboard: HabitDashboard) {
                 Text(quote, color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "${formatMinutes(dashboard.todayMinutes)} today • $completedToday/${dashboard.buildHabits.size} checked",
+                    "Daily motivation",
                     color = MutedText,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -517,7 +512,7 @@ private fun CalendarTab(
             }
         }
         item {
-            WeeklyBarsCard(dashboard = dashboard)
+            WeeklyConsistencyCard(dashboard = dashboard)
         }
     }
 }
@@ -645,59 +640,165 @@ private fun QuitHabitCard(
 }
 
 @Composable
-private fun WeeklyBarsCard(dashboard: HabitDashboard) {
-    val today = dashboard.today
-    val start = today.with(DayOfWeek.MONDAY)
-    val dailySegments = (0..6).map { offset ->
-        val date = start.plusDays(offset.toLong())
-        dashboard.buildHabits.mapNotNull { habit ->
-            val minutes = dashboard.logFor(habit.habitId, date)?.minutes ?: 0
-            if (minutes > 0) HabitBarSegment(habit.habitId, habitColor(habit.colorIndex), minutes) else null
+private fun WeeklyConsistencyCard(dashboard: HabitDashboard) {
+    val weekDays = remember(dashboard.today) {
+        val start = dashboard.today.with(DayOfWeek.MONDAY)
+        (0..6).map { start.plusDays(it.toLong()) }
+    }
+    val keptCount = dashboard.buildHabits.sumOf { habit ->
+        weekDays.count { date -> isLogComplete(habit, dashboard.logFor(habit.habitId, date)) }
+    }
+    val pastSlots = dashboard.buildHabits.size * weekDays.count { !it.isAfter(dashboard.today) }
+    val missedCount = dashboard.buildHabits.sumOf { habit ->
+        weekDays.count { date ->
+            !date.isAfter(dashboard.today) && dashboard.logFor(habit.habitId, date) == null
         }
     }
-    val values = dailySegments.map { segments -> segments.sumOf { it.minutes } }
-    val maxValue = values.maxOrNull()?.coerceAtLeast(60) ?: 60
     StatCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Weekly Time", color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text(formatMinutes(values.sum()), color = MutedText, style = MaterialTheme.typography.bodySmall)
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Weekly Consistency", color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "$keptCount kept • $missedCount skipped",
+                    color = MutedText,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Text(
+                if (pastSlots == 0) "0%" else "${((keptCount.toFloat() / pastSlots) * 100).roundToInt()}%",
+                color = Cyan,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
         }
         Spacer(Modifier.height(12.dp))
-        Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
-            val gap = 10.dp.toPx()
-            val barWidth = (size.width - gap * 6) / 7
-            dailySegments.forEachIndexed { index, segments ->
-                val value = segments.sumOf { it.minutes }
-                val height = (size.height * (value.toFloat() / maxValue)).coerceAtLeast(if (value > 0) 6f else 0f)
-                val left = index * (barWidth + gap)
-                drawRoundRect(
-                    color = Color.White.copy(alpha = 0.08f),
-                    topLeft = androidx.compose.ui.geometry.Offset(left, 0f),
-                    size = androidx.compose.ui.geometry.Size(barWidth, size.height),
-                    cornerRadius = CornerRadius(12f, 12f),
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.weight(1.8f))
+            weekDays.forEach { date ->
+                Text(
+                    date.dayOfWeek.name.take(1),
+                    color = if (date == dashboard.today) Cyan else MutedText,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
                 )
-                var bottom = size.height
-                segments.forEach { segment ->
-                    val segmentHeight = height * (segment.minutes.toFloat() / value.coerceAtLeast(1))
-                    drawRoundRect(
-                        color = segment.color.copy(alpha = 0.82f),
-                        topLeft = androidx.compose.ui.geometry.Offset(left, bottom - segmentHeight),
-                        size = androidx.compose.ui.geometry.Size(barWidth, segmentHeight),
-                        cornerRadius = CornerRadius(12f, 12f),
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        dashboard.buildHabits.forEach { habit ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.weight(1.8f),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(habitColor(habit.colorIndex)),
                     )
-                    bottom -= segmentHeight
+                    Text(
+                        habit.name,
+                        color = SoftText,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                weekDays.forEach { date ->
+                    WeeklyStatusCell(
+                        habit = habit,
+                        log = dashboard.logFor(habit.habitId, date),
+                        date = date,
+                        today = dashboard.today,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            listOf("M", "T", "W", "T", "F", "S", "S").forEach {
-                Text(it, color = MutedText, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            StatusLegendItem(status = HabitWeekStatus.Kept, text = "Kept")
+            StatusLegendItem(status = HabitWeekStatus.Partial, text = "Partial")
+            StatusLegendItem(status = HabitWeekStatus.Skipped, text = "Skipped")
+        }
+    }
+}
+
+private enum class HabitWeekStatus {
+    Kept,
+    Partial,
+    Skipped,
+}
+
+@Composable
+private fun WeeklyStatusCell(
+    habit: Habit,
+    log: HabitLog?,
+    date: LocalDate,
+    today: LocalDate,
+    modifier: Modifier = Modifier,
+) {
+    val progress = habitProgress(habit, log)
+    val kept = isLogComplete(habit, log)
+    val future = date.isAfter(today)
+    val color = habitColor(habit.colorIndex)
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(
+                    when {
+                        future -> Color.White.copy(alpha = 0.04f)
+                        kept -> color
+                        progress > 0f -> color.copy(alpha = 0.30f)
+                        else -> Color.White.copy(alpha = 0.08f)
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                kept -> Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                progress > 0f -> Box(
+                    modifier = Modifier
+                        .size(width = 10.dp, height = 3.dp)
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(color),
+                )
+                !future -> Icon(Icons.Rounded.Close, contentDescription = null, tint = MutedText, modifier = Modifier.size(12.dp))
             }
         }
-        if (dashboard.buildHabits.isNotEmpty()) {
-            Spacer(Modifier.height(10.dp))
-            HabitLegend(dashboard.buildHabits)
+    }
+}
+
+@Composable
+private fun StatusLegendItem(status: HabitWeekStatus, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.08f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            when (status) {
+                HabitWeekStatus.Kept -> Icon(Icons.Rounded.Check, contentDescription = null, tint = MutedText, modifier = Modifier.size(8.dp))
+                HabitWeekStatus.Partial -> Box(
+                    modifier = Modifier
+                        .size(width = 7.dp, height = 2.dp)
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(MutedText),
+                )
+                HabitWeekStatus.Skipped -> Icon(Icons.Rounded.Close, contentDescription = null, tint = MutedText, modifier = Modifier.size(7.dp))
+            }
         }
+        Text(text, color = MutedText, style = MaterialTheme.typography.labelSmall)
     }
 }
 
