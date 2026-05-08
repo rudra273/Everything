@@ -100,9 +100,9 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 private enum class HabitTab {
-    Today,
+    CheckIn,
     Habits,
-    Calendar,
+    Progress,
     Quit,
 }
 
@@ -125,12 +125,14 @@ fun HabitScreen(
     val dashboard by container.habitRepository
         .observeDashboard()
         .collectAsStateWithLifecycle(initialValue = null)
-    var selectedTab by remember { mutableStateOf(HabitTab.Today) }
+    var selectedTab by remember { mutableStateOf(HabitTab.CheckIn) }
     var addOpen by remember { mutableStateOf(false) }
+    var addKind by remember { mutableStateOf(HabitKind.Build) }
     var editHabit by remember { mutableStateOf<Habit?>(null) }
     var logHabit by remember { mutableStateOf<Habit?>(null) }
     var relapseHabit by remember { mutableStateOf<Habit?>(null) }
     var selectedMonth by remember { mutableStateOf(YearMonth.now()) }
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
 
     BackHandler(onBack = onBack)
 
@@ -143,7 +145,13 @@ fun HabitScreen(
                 .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            HabitTopBar(onBack = onBack, onAdd = { addOpen = true })
+            HabitTopBar(
+                onBack = onBack,
+                onAdd = {
+                    addKind = if (selectedTab == HabitTab.Quit) HabitKind.Quit else HabitKind.Build
+                    addOpen = true
+                },
+            )
             HabitTabs(selectedTab = selectedTab, onTabChange = { selectedTab = it })
 
             when (val current = dashboard) {
@@ -152,14 +160,23 @@ fun HabitScreen(
                 }
 
                 else -> when (selectedTab) {
-                    HabitTab.Today -> TodayTab(
+                    HabitTab.CheckIn -> CheckInTab(
                         dashboard = current,
+                        selectedDate = selectedDate,
+                        onPreviousDate = { selectedDate = selectedDate.minusDays(1) },
+                        onNextDate = { selectedDate = selectedDate.plusDays(1) },
                         onLog = { logHabit = it },
-                        onAdd = { addOpen = true },
+                        onAdd = {
+                            addKind = HabitKind.Build
+                            addOpen = true
+                        },
                     )
                     HabitTab.Habits -> HabitsTab(
                         dashboard = current,
-                        onAdd = { addOpen = true },
+                        onAdd = {
+                            addKind = HabitKind.Build
+                            addOpen = true
+                        },
                         onEdit = { editHabit = it },
                         onDelete = { habit ->
                             scope.launch {
@@ -168,7 +185,7 @@ fun HabitScreen(
                             }
                         },
                     )
-                    HabitTab.Calendar -> CalendarTab(
+                    HabitTab.Progress -> ProgressTab(
                         dashboard = current,
                         selectedMonth = selectedMonth,
                         onPrevious = { selectedMonth = selectedMonth.minusMonths(1) },
@@ -176,7 +193,10 @@ fun HabitScreen(
                     )
                     HabitTab.Quit -> QuitTab(
                         dashboard = current,
-                        onAdd = { addOpen = true },
+                        onAdd = {
+                            addKind = HabitKind.Quit
+                            addOpen = true
+                        },
                         onRelapse = { relapseHabit = it },
                         onEdit = { editHabit = it },
                     )
@@ -188,6 +208,7 @@ fun HabitScreen(
     if (addOpen) {
         HabitEditorDialog(
             habit = null,
+            initialKind = addKind,
             onDismiss = { addOpen = false },
             onSave = { draft ->
                 scope.launch {
@@ -214,6 +235,7 @@ fun HabitScreen(
     editHabit?.let { habit ->
         HabitEditorDialog(
             habit = habit,
+            initialKind = habit.kind,
             onDismiss = { editHabit = null },
             onSave = { draft ->
                 scope.launch {
@@ -254,14 +276,15 @@ fun HabitScreen(
     logHabit?.let { habit ->
         ProgressDialog(
             habit = habit,
-            existing = dashboard?.logFor(habit.habitId),
+            selectedDate = selectedDate,
+            existing = dashboard?.logFor(habit.habitId, selectedDate),
             onDismiss = { logHabit = null },
             onSave = { minutes, count, note ->
                 val completed = isGoalComplete(habit, minutes, count, checked = true)
                 scope.launch {
                     container.habitRepository.saveDailyProgress(
                         habitId = habit.habitId,
-                        date = LocalDate.now(),
+                        date = selectedDate,
                         minutes = minutes,
                         progressCount = count,
                         completed = completed,
@@ -308,7 +331,7 @@ private fun HabitTabs(selectedTab: HabitTab, onTabChange: (HabitTab) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         HabitTab.values().forEach { tab ->
             GlassFilterButton(
-                text = tab.name,
+                text = tab.title,
                 selected = selectedTab == tab,
                 modifier = Modifier.weight(1f),
                 onClick = { onTabChange(tab) },
@@ -317,15 +340,34 @@ private fun HabitTabs(selectedTab: HabitTab, onTabChange: (HabitTab) -> Unit) {
     }
 }
 
+private val HabitTab.title: String
+    get() = when (this) {
+        HabitTab.CheckIn -> "Check In"
+        HabitTab.Habits -> "Habits"
+        HabitTab.Progress -> "Progress"
+        HabitTab.Quit -> "Quit"
+    }
+
 @Composable
-private fun TodayTab(
+private fun CheckInTab(
     dashboard: HabitDashboard,
+    selectedDate: LocalDate,
+    onPreviousDate: () -> Unit,
+    onNextDate: () -> Unit,
     onLog: (Habit) -> Unit,
     onAdd: () -> Unit,
 ) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
         item {
             QuoteCard(dashboard = dashboard)
+        }
+        item {
+            DateSelector(
+                selectedDate = selectedDate,
+                today = dashboard.today,
+                onPrevious = onPreviousDate,
+                onNext = onNextDate,
+            )
         }
         if (dashboard.buildHabits.isEmpty()) {
             item {
@@ -339,13 +381,10 @@ private fun TodayTab(
             items(dashboard.buildHabits, key = { it.habitId }) { habit ->
                 DailyHabitRow(
                     habit = habit,
-                    log = dashboard.logFor(habit.habitId),
-                    streak = buildStreak(habit, dashboard.logs, dashboard.today),
+                    log = dashboard.logFor(habit.habitId, selectedDate),
+                    streak = buildStreak(habit, dashboard.logs, selectedDate),
                     onClick = { onLog(habit) },
                 )
-            }
-            item {
-                WeeklyConsistencyCard(dashboard = dashboard)
             }
         }
     }
@@ -359,12 +398,35 @@ private fun QuoteCard(dashboard: HabitDashboard) {
             IconCircle(Icons.Rounded.SelfImprovement, Cyan)
             Column(modifier = Modifier.weight(1f)) {
                 Text(quote, color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Daily motivation",
-                    color = MutedText,
-                    style = MaterialTheme.typography.bodySmall,
-                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DateSelector(
+    selectedDate: LocalDate,
+    today: LocalDate,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
+    val label = when (selectedDate) {
+        today -> "Today"
+        today.minusDays(1) -> "Yesterday"
+        today.plusDays(1) -> "Tomorrow"
+        else -> selectedDate.format(DateTimeFormatter.ofPattern("EEE, dd MMM"))
+    }
+    StatCard(compact = true) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            IconButton(onClick = onPrevious, modifier = Modifier.size(32.dp)) {
+                Text("<", color = SoftText, fontWeight = FontWeight.Bold)
+            }
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(label, color = SoftText, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(selectedDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy")), color = MutedText, style = MaterialTheme.typography.labelSmall)
+            }
+            IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) {
+                Text(">", color = SoftText, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -379,11 +441,11 @@ private fun DailyHabitRow(
 ) {
     val completed = isLogComplete(habit, log)
     val progress = habitProgress(habit, log)
-    StatCard(modifier = Modifier.clickable(onClick = onClick)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    StatCard(modifier = Modifier.clickable(onClick = onClick), compact = true) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(30.dp)
                     .clip(CircleShape)
                     .background(if (completed) habitColor(habit.colorIndex) else Color.White.copy(alpha = 0.08f)),
                 contentAlignment = Alignment.Center,
@@ -392,17 +454,17 @@ private fun DailyHabitRow(
                     imageVector = if (completed) Icons.Rounded.Check else Icons.Rounded.RadioButtonUnchecked,
                     contentDescription = null,
                     tint = if (completed) Color.White else MutedText,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                 )
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(habit.name, color = SoftText, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${(progress * 100).roundToInt()}%", color = MutedText, style = MaterialTheme.typography.labelMedium)
                 }
                 LinearProgressIndicator(
                     progress = { progress },
-                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(99.dp)),
+                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(99.dp)),
                     color = habitColor(habit.colorIndex),
                     trackColor = Color.White.copy(alpha = 0.10f),
                 )
@@ -435,7 +497,7 @@ private fun HabitsTab(
                 onClick = onAdd,
             )
         }
-        items(dashboard.habits, key = { it.habitId }) { habit ->
+        items(dashboard.buildHabits, key = { it.habitId }) { habit ->
             HabitManageCard(
                 habit = habit,
                 logs = dashboard.logs,
@@ -483,7 +545,7 @@ private fun HabitManageCard(
 }
 
 @Composable
-private fun CalendarTab(
+private fun ProgressTab(
     dashboard: HabitDashboard,
     selectedMonth: YearMonth,
     onPrevious: () -> Unit,
@@ -596,6 +658,7 @@ private fun QuitTab(
                 EmptyHabitCard(
                     title = "Leave a bad habit",
                     subtitle = "Track clean days for smoking, porn, junk food, alcohol, or any loop you want to break.",
+                    buttonText = "Quit Habit",
                     onAdd = onAdd,
                 )
             }
@@ -835,23 +898,32 @@ private fun HabitLegend(habits: List<Habit>) {
 }
 
 @Composable
-private fun EmptyHabitCard(title: String, subtitle: String, onAdd: () -> Unit) {
+private fun EmptyHabitCard(
+    title: String,
+    subtitle: String,
+    buttonText: String = "Add Habit",
+    onAdd: () -> Unit,
+) {
     StatCard {
         Text(title, color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         Text(subtitle, color = MutedText, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(12.dp))
-        PrimaryButton(text = "Add Habit", modifier = Modifier.fillMaxWidth(), onClick = onAdd)
+        PrimaryButton(text = buttonText, modifier = Modifier.fillMaxWidth(), onClick = onAdd)
     }
 }
 
 @Composable
-private fun StatCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+private fun StatCard(
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+    content: @Composable () -> Unit,
+) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .glassSurface(RoundedCornerShape(18.dp), tintStrength = 0.12f)
-            .padding(14.dp),
+            .padding(if (compact) 10.dp else 14.dp),
     ) {
         content()
     }
@@ -887,11 +959,12 @@ private data class HabitDraft(
 @Composable
 private fun HabitEditorDialog(
     habit: Habit?,
+    initialKind: HabitKind,
     onDismiss: () -> Unit,
     onSave: (HabitDraft) -> Unit,
 ) {
     var name by remember { mutableStateOf(habit?.name ?: "") }
-    var kind by remember { mutableStateOf(habit?.kind ?: HabitKind.Build) }
+    var kind by remember { mutableStateOf(habit?.kind ?: initialKind) }
     var goalType by remember { mutableStateOf(habit?.goalType ?: HabitGoalType.Time) }
     var targetMinutes by remember { mutableStateOf((habit?.targetMinutes ?: 60).takeIf { it > 0 }?.toString() ?: "") }
     var targetCount by remember { mutableStateOf((habit?.targetCount ?: 1).takeIf { it > 0 }?.toString() ?: "") }
@@ -1064,6 +1137,7 @@ private fun HabitEditorDialog(
 @Composable
 private fun ProgressDialog(
     habit: Habit,
+    selectedDate: LocalDate,
     existing: HabitLog?,
     onDismiss: () -> Unit,
     onSave: (Int, Int, String) -> Unit,
@@ -1084,7 +1158,12 @@ private fun ProgressDialog(
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text(habit.name) },
+        title = {
+            Column {
+                Text(habit.name)
+                Text(selectedDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy")), color = MutedText, style = MaterialTheme.typography.bodySmall)
+            }
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (habit.goalType == HabitGoalType.Time) {
