@@ -272,6 +272,7 @@ fun DashboardScreen(
     onOpenAppLock: () -> Unit,
     onOpenKeyStore: () -> Unit,
     onOpenNotes: () -> Unit,
+    onOpenEditor: () -> Unit,
     onOpenHabit: () -> Unit,
     onOpenExpenses: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -283,11 +284,10 @@ fun DashboardScreen(
     val showAppLock = matchesTool("App Lock")
     val showKeyStore = matchesTool("Key Store")
     val showNotes = matchesTool("Notes")
-    val showFileVault = matchesTool("File Vault")
     val showHabit = matchesTool("Habit")
     val showExpenses = matchesTool("Expenses")
     val showEditor = matchesTool("Editor")
-    val showSecurity = showAppLock || showKeyStore || showNotes || showFileVault
+    val showSecurity = showAppLock || showKeyStore || showNotes
     val showProductivity = showHabit || showExpenses || showEditor
     AppSurface {
         Column(
@@ -376,14 +376,6 @@ fun DashboardScreen(
                         onClick = onOpenNotes,
                     )
                 }
-                if (showFileVault) item {
-                    ToolGridItem(
-                        iconResId = com.rudra.everything.R.drawable.ic_file_vault,
-                        title = "File Vault",
-                        onClick = { /* Placeholder */ },
-                    )
-                }
-
                 // PRODUCTIVITY & TOOLS
                 if (showProductivity) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
@@ -415,7 +407,7 @@ fun DashboardScreen(
                     ToolGridItem(
                         iconResId = com.rudra.everything.R.drawable.ic_notes_editor,
                         title = "Editor",
-                        onClick = { /* Placeholder */ },
+                        onClick = onOpenEditor,
                     )
                 }
                 if (!showSecurity && !showProductivity) {
