@@ -187,18 +187,38 @@ fun GlassFilterButton(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(12.dp)
+    val accent = Cyan
+    val selectedFillAlpha = if (IsLightBackground) 0.18f else 0.20f
+    val selectedBorderAlpha = if (IsLightBackground) 0.78f else 0.88f
     Box(
         modifier = modifier
-            .glassSurface(shape = shape, selected = selected, tintStrength = 0.08f)
+            .glassSurface(
+                shape = shape,
+                selected = selected,
+                tintStrength = if (selected) 0.30f else 0.08f,
+            )
+            .then(
+                if (selected) {
+                    Modifier
+                        .background(accent.copy(alpha = selectedFillAlpha), shape)
+                        .border(1.2.dp, accent.copy(alpha = selectedBorderAlpha), shape)
+                } else {
+                    Modifier
+                }
+            )
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
-            color = if (enabled) SoftText else MutedText,
+            color = when {
+                !enabled -> MutedText
+                selected -> accent
+                else -> SoftText
+            },
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

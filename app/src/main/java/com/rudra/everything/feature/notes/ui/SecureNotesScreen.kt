@@ -2,6 +2,7 @@ package com.rudra.everything.feature.notes.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
@@ -28,6 +29,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
@@ -553,17 +556,31 @@ private fun LabelPickerDialog(
 ) {
     var newLabel by remember { mutableStateOf("") }
     val cleanNewLabel = newLabel.trim()
+    val visibleLabels = remember(existingLabels, selectedLabels) {
+        (existingLabels + selectedLabels).map { it.trim() }.filter { it.isNotBlank() }.distinct().sorted()
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Labels", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (existingLabels.isNotEmpty()) {
-                    Text("Existing", color = MutedText, style = MaterialTheme.typography.labelSmall)
+                if (selectedLabels.isNotEmpty()) {
+                    Text("Added to this note", color = MutedText, style = MaterialTheme.typography.labelSmall)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        items(existingLabels) { label ->
-                            LabelChip(
+                        items(selectedLabels.toList().sorted()) { label ->
+                            SelectedLabelChip(
+                                label = label,
+                                onRemove = { onToggleLabel(label) },
+                            )
+                        }
+                    }
+                }
+                if (visibleLabels.isNotEmpty()) {
+                    Text("Choose labels", color = MutedText, style = MaterialTheme.typography.labelSmall)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        items(visibleLabels) { label ->
+                            LabelChoiceChip(
                                 label = label,
                                 selected = label in selectedLabels,
                                 onClick = { onToggleLabel(label) },
@@ -690,6 +707,65 @@ private fun LabelChip(
     onClick: () -> Unit,
 ) {
     GlassFilterButton(text = label, selected = selected, onClick = onClick)
+}
+
+@Composable
+private fun LabelChoiceChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier = Modifier
+            .glassSurface(shape, selected = selected, tintStrength = if (selected) 0.30f else 0.08f)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (selected) {
+            Icon(Icons.Rounded.Check, contentDescription = null, tint = Cyan, modifier = Modifier.size(14.dp))
+        }
+        Text(
+            text = label,
+            color = if (selected) Cyan else SoftText,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun SelectedLabelChip(
+    label: String,
+    onRemove: () -> Unit,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier = Modifier
+            .glassSurface(shape, selected = true, tintStrength = 0.30f)
+            .background(Cyan.copy(alpha = 0.18f), shape)
+            .border(1.dp, Cyan.copy(alpha = 0.82f), shape)
+            .padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(Icons.Rounded.Check, contentDescription = null, tint = Cyan, modifier = Modifier.size(14.dp))
+        Text(
+            text = label,
+            color = Cyan,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+            Icon(Icons.Rounded.Close, contentDescription = "Remove $label", tint = Cyan, modifier = Modifier.size(14.dp))
+        }
+    }
 }
 
 @Composable
