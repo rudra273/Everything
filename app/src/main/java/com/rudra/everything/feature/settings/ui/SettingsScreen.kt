@@ -80,12 +80,12 @@ import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.security.EverythingDeviceAdmin
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
+import com.rudra.everything.core.ui.GlassLoadingIndicator
 import com.rudra.everything.core.ui.PrimaryButton
 import com.rudra.everything.core.ui.SecondaryButton
 import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.SoftText
 import com.rudra.everything.core.ui.glassSurface
-import androidx.compose.material3.CircularProgressIndicator
 import com.rudra.everything.feature.applock.domain.SettingsPackageResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -287,7 +287,7 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator(color = Cyan)
+                    GlassLoadingIndicator()
                 }
                 return@Column
             }

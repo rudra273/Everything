@@ -42,7 +42,6 @@ import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.SelfImprovement
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -81,6 +80,7 @@ import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.DangerRed
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.GlassFilterButton
+import com.rudra.everything.core.ui.GlassLoadingIndicator
 import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.PrimaryButton
 import com.rudra.everything.core.ui.SecondaryButton
@@ -238,7 +238,7 @@ fun HabitScreen(
 
             when (val current = dashboard) {
                 null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Cyan)
+                    GlassLoadingIndicator()
                 }
 
                 else -> when (selectedTab) {

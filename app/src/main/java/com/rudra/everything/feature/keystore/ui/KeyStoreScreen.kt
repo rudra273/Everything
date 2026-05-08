@@ -42,7 +42,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -81,6 +80,7 @@ import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.GlassFilterButton
+import com.rudra.everything.core.ui.GlassLoadingIndicator
 import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.PanelAlt
 import com.rudra.everything.core.ui.SoftText
@@ -198,7 +198,7 @@ fun KeyStoreScreen(
     if (isToolLocked == null) {
         GlassBackground {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Cyan)
+                GlassLoadingIndicator()
             }
         }
         return
@@ -315,7 +315,7 @@ fun KeyStoreScreen(
 
                 when (val currentEntries = entries) {
                     null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Cyan)
+                        GlassLoadingIndicator()
                     }
 
                     else -> LazyColumn(

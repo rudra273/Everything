@@ -3,16 +3,25 @@ package com.rudra.everything.core.ui
 import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -23,6 +32,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import kotlinx.coroutines.delay
 
 enum class AppTheme {
     SKY_BLUE,
@@ -221,6 +232,62 @@ fun GlassFilterButton(
             fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+fun GlassLoadingIndicator(
+    modifier: Modifier = Modifier,
+    delayMillis: Long = 260L,
+) {
+    var visible by remember { mutableStateOf(delayMillis <= 0L) }
+    LaunchedEffect(delayMillis) {
+        if (delayMillis > 0L) {
+            delay(delayMillis)
+            visible = true
+        }
+    }
+    if (!visible) return
+
+    val transition = rememberInfiniteTransition(label = "glass-loader")
+    val xOffset by transition.animateFloat(
+        initialValue = -88f,
+        targetValue = 196f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 820, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "glass-loader-offset",
+    )
+    val shape = RoundedCornerShape(999.dp)
+    val accent = Cyan
+
+    Box(
+        modifier = modifier
+            .width(188.dp)
+            .height(7.dp)
+            .clip(shape)
+            .background(Stroke.copy(alpha = if (IsLightBackground) 0.34f else 0.28f), shape)
+            .border(0.7.dp, Color.White.copy(alpha = if (IsLightBackground) 0.48f else 0.20f), shape),
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = xOffset.dp)
+                .width(76.dp)
+                .fillMaxHeight()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Transparent,
+                            accent.copy(alpha = 0.34f),
+                            accent,
+                            accent.copy(alpha = 0.34f),
+                            Color.Transparent,
+                        )
+                    ),
+                    shape,
+                ),
         )
     }
 }

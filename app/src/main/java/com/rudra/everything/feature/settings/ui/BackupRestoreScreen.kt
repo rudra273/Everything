@@ -42,7 +42,6 @@ import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -88,6 +87,7 @@ import com.rudra.everything.core.backup.DriveBackupSchedule
 import com.rudra.everything.core.backup.DriveBackupSource
 import com.rudra.everything.core.backup.EverythingBackupService
 import com.rudra.everything.core.data.SecureSettingRepository
+import com.rudra.everything.core.ui.GlassLoadingIndicator
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.MutedText
@@ -951,7 +951,7 @@ private fun LoadingPanel() {
             .height(96.dp),
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator(color = Cyan)
+        GlassLoadingIndicator()
     }
 }
 

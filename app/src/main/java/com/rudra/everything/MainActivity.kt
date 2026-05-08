@@ -5,7 +5,6 @@ import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -25,8 +24,8 @@ import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.permissions.AppLockPermissionChecker
 import com.rudra.everything.core.permissions.AppLockPermissionState
 import com.rudra.everything.core.security.BiometricAuthenticator
-import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.EverythingTheme
+import com.rudra.everything.core.ui.GlassLoadingIndicator
 import com.rudra.everything.feature.applock.data.LockedApp
 import com.rudra.everything.feature.applock.service.AppMonitorService
 import com.rudra.everything.feature.applock.ui.AppLockScreen
@@ -252,6 +251,6 @@ private fun StartupLoadingScreen() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator(color = Cyan)
+        GlassLoadingIndicator()
     }
 }

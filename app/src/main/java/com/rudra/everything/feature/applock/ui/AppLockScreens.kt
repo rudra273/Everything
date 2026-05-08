@@ -51,7 +51,6 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -88,6 +87,7 @@ import com.rudra.everything.AppContainer
 import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.permissions.AppLockPermissionState
 import com.rudra.everything.core.permissions.PermissionIntents
+import com.rudra.everything.core.ui.GlassLoadingIndicator
 import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
@@ -566,7 +566,7 @@ fun AppLockScreen(
     if (isToolLocked == null) {
         AppSurface {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Cyan)
+                GlassLoadingIndicator()
             }
         }
         return
@@ -662,7 +662,7 @@ fun AppLockScreen(
         ) { padding ->
             if (installedApps == null) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Cyan)
+                    GlassLoadingIndicator()
                 }
             } else {
                 val onCheckedChange: (InstalledApp, Boolean) -> Unit = { app, checked ->

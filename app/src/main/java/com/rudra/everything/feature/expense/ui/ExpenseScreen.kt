@@ -40,7 +40,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -76,6 +75,7 @@ import com.rudra.everything.core.ui.DangerRed
 import com.rudra.everything.core.ui.DangerRedMuted
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.GlassFilterButton
+import com.rudra.everything.core.ui.GlassLoadingIndicator
 import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.PanelAlt
 import com.rudra.everything.core.ui.PrimaryButton
@@ -195,7 +195,7 @@ fun ExpenseScreen(
 
                 when (val currentSummary = summary) {
             null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Cyan)
+                GlassLoadingIndicator()
             }
 
             else -> LazyColumn(
