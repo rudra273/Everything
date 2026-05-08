@@ -61,9 +61,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -108,19 +111,16 @@ private enum class HabitTab {
 
 private val quotes = listOf(
     "What are you capable of?",
-    "Later? Later the coffee gets cold.",
     "The problem is, you think you have time.",
     "You do not always need a logical reason to begin.",
     "Everything is a win when the goal is to experience.",
     "Everything may be against you, but you have the madness to continue.",
     "Remember who you are.",
     "It is never too late to rebuild yourself.",
-    "Show your prime one more time.",
     "Do the next honest minute.",
     "Your future is listening to what you repeat today.",
     "Discipline is just self-respect with a schedule.",
     "Become undeniable, quietly.",
-    "The old you can rest now. Build again.",
     "Tiny proof beats perfect intention.",
 )
 
@@ -139,15 +139,87 @@ fun HabitScreen(
     var addOpen by remember { mutableStateOf(false) }
     var addKind by remember { mutableStateOf(HabitKind.Build) }
     var editHabit by remember { mutableStateOf<Habit?>(null) }
+    var deleteHabit by remember { mutableStateOf<Habit?>(null) }
     var logHabit by remember { mutableStateOf<Habit?>(null) }
     var relapseHabit by remember { mutableStateOf<Habit?>(null) }
     var selectedMonth by remember { mutableStateOf(YearMonth.now()) }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    val nestedUiOpen = addOpen || editHabit != null || deleteHabit != null || logHabit != null || relapseHabit != null
 
-    BackHandler(onBack = onBack)
+    BackHandler(enabled = !nestedUiOpen, onBack = onBack)
 
     GlassBackground {
-        Column(
+        when {
+            addOpen -> HabitEditorPage(
+                habit = null,
+                initialKind = addKind,
+                onDismiss = { addOpen = false },
+                onSave = { draft ->
+                    scope.launch {
+                        val habit = container.habitRepository.addHabit(
+                            name = draft.name,
+                            kind = draft.kind,
+                            goalType = draft.goalType,
+                            targetMinutes = draft.targetMinutes,
+                            targetCount = draft.targetCount,
+                            unitLabel = draft.unitLabel,
+                            colorIndex = draft.colorIndex,
+                            reminderEnabled = draft.reminderEnabled,
+                            reminderHour = draft.reminderHour,
+                            reminderMinute = draft.reminderMinute,
+                        )
+                        scheduler.schedule(habit)
+                        requestNotificationPermissionIfNeeded(context as? Activity)
+                        addOpen = false
+                    }
+                },
+            )
+
+            editHabit != null -> {
+                val habit = editHabit
+                if (habit != null) {
+                    HabitEditorPage(
+                        habit = habit,
+                        initialKind = habit.kind,
+                        onDismiss = { editHabit = null },
+                        onSave = { draft ->
+                            scope.launch {
+                                container.habitRepository.updateHabit(
+                                    habitId = habit.habitId,
+                                    name = draft.name,
+                                    goalType = draft.goalType,
+                                    targetMinutes = draft.targetMinutes,
+                                    targetCount = draft.targetCount,
+                                    unitLabel = draft.unitLabel,
+                                    colorIndex = draft.colorIndex,
+                                    reminderEnabled = draft.reminderEnabled,
+                                    reminderHour = draft.reminderHour,
+                                    reminderMinute = draft.reminderMinute,
+                                    active = draft.active,
+                                )
+                                scheduler.schedule(
+                                    habit.copy(
+                                        name = draft.name,
+                                        goalType = draft.goalType,
+                                        targetMinutes = draft.targetMinutes,
+                                        targetCount = draft.targetCount,
+                                        unitLabel = draft.unitLabel,
+                                        colorIndex = draft.colorIndex,
+                                        reminderEnabled = draft.reminderEnabled,
+                                        reminderHour = draft.reminderHour,
+                                        reminderMinute = draft.reminderMinute,
+                                        active = draft.active,
+                                    ),
+                                )
+                                requestNotificationPermissionIfNeeded(context as? Activity)
+                                editHabit = null
+                            }
+                        },
+                    )
+                }
+            }
+
+            else -> Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(WindowInsets.statusBars.asPaddingValues())
@@ -188,12 +260,7 @@ fun HabitScreen(
                             addOpen = true
                         },
                         onEdit = { editHabit = it },
-                        onDelete = { habit ->
-                            scope.launch {
-                                scheduler.cancel(habit.habitId)
-                                container.habitRepository.deleteHabit(habit.habitId)
-                            }
-                        },
+                        onDelete = { deleteHabit = it },
                     )
                     HabitTab.Progress -> ProgressTab(
                         dashboard = current,
@@ -214,73 +281,6 @@ fun HabitScreen(
             }
         }
     }
-
-    if (addOpen) {
-        HabitEditorDialog(
-            habit = null,
-            initialKind = addKind,
-            onDismiss = { addOpen = false },
-            onSave = { draft ->
-                scope.launch {
-                    val habit = container.habitRepository.addHabit(
-                        name = draft.name,
-                        kind = draft.kind,
-                        goalType = draft.goalType,
-                        targetMinutes = draft.targetMinutes,
-                        targetCount = draft.targetCount,
-                        unitLabel = draft.unitLabel,
-                        colorIndex = draft.colorIndex,
-                        reminderEnabled = draft.reminderEnabled,
-                        reminderHour = draft.reminderHour,
-                        reminderMinute = draft.reminderMinute,
-                    )
-                    scheduler.schedule(habit)
-                    requestNotificationPermissionIfNeeded(context as? Activity)
-                    addOpen = false
-                }
-            },
-        )
-    }
-
-    editHabit?.let { habit ->
-        HabitEditorDialog(
-            habit = habit,
-            initialKind = habit.kind,
-            onDismiss = { editHabit = null },
-            onSave = { draft ->
-                scope.launch {
-                    container.habitRepository.updateHabit(
-                        habitId = habit.habitId,
-                        name = draft.name,
-                        goalType = draft.goalType,
-                        targetMinutes = draft.targetMinutes,
-                        targetCount = draft.targetCount,
-                        unitLabel = draft.unitLabel,
-                        colorIndex = draft.colorIndex,
-                        reminderEnabled = draft.reminderEnabled,
-                        reminderHour = draft.reminderHour,
-                        reminderMinute = draft.reminderMinute,
-                        active = draft.active,
-                    )
-                    scheduler.schedule(
-                        habit.copy(
-                            name = draft.name,
-                            goalType = draft.goalType,
-                            targetMinutes = draft.targetMinutes,
-                            targetCount = draft.targetCount,
-                            unitLabel = draft.unitLabel,
-                            colorIndex = draft.colorIndex,
-                            reminderEnabled = draft.reminderEnabled,
-                            reminderHour = draft.reminderHour,
-                            reminderMinute = draft.reminderMinute,
-                            active = draft.active,
-                        ),
-                    )
-                    requestNotificationPermissionIfNeeded(context as? Activity)
-                    editHabit = null
-                }
-            },
-        )
     }
 
     logHabit?.let { habit ->
@@ -314,6 +314,20 @@ fun HabitScreen(
                 scope.launch {
                     container.habitRepository.addRelapse(habit.habitId, LocalDate.now(), note)
                     relapseHabit = null
+                }
+            },
+        )
+    }
+
+    deleteHabit?.let { habit ->
+        DeleteHabitDialog(
+            habit = habit,
+            onDismiss = { deleteHabit = null },
+            onConfirm = {
+                scope.launch {
+                    scheduler.cancel(habit.habitId)
+                    container.habitRepository.deleteHabit(habit.habitId)
+                    deleteHabit = null
                 }
             },
         )
@@ -539,27 +553,41 @@ private fun HabitManageCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val streak = if (habit.kind == HabitKind.Quit) quitCleanDays(habit, logs, today) else buildStreak(habit, logs, today)
-    StatCard {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            IconCircle(if (habit.kind == HabitKind.Quit) Icons.Rounded.Close else Icons.Rounded.Flag, habitColor(habit.colorIndex))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(habit.name, color = SoftText, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val streak = buildStreak(habit, logs, today)
+    StatCard(compact = true) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            IconCircle(Icons.Rounded.Flag, habitColor(habit.colorIndex), size = 36.dp, iconSize = 19.dp)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        habit.name,
+                        color = SoftText,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (habit.reminderEnabled) {
+                        Text(
+                            timeText(habit.reminderHour, habit.reminderMinute),
+                            color = MutedText,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
                 Text(
-                    "${habit.kind.name} • ${habitGoalText(habit)} • $streak day ${if (habit.kind == HabitKind.Quit) "clean" else "streak"}",
+                    "${habitGoalText(habit)} • $streak day streak",
                     color = MutedText,
                     style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (habit.reminderEnabled) {
-                    Text("Reminder ${timeText(habit.reminderHour, habit.reminderMinute)}", color = MutedText, style = MaterialTheme.typography.bodySmall)
-                }
             }
-            IconButton(onClick = onEdit) {
+            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Rounded.Edit, contentDescription = "Edit", tint = SoftText)
             }
-            IconButton(onClick = onDelete) {
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Rounded.Delete, contentDescription = "Delete", tint = DangerRed)
             }
         }
@@ -952,15 +980,20 @@ private fun StatCard(
 }
 
 @Composable
-private fun IconCircle(icon: ImageVector, color: Color) {
+private fun IconCircle(
+    icon: ImageVector,
+    color: Color,
+    size: androidx.compose.ui.unit.Dp = 42.dp,
+    iconSize: androidx.compose.ui.unit.Dp = 22.dp,
+) {
     Box(
         modifier = Modifier
-            .size(42.dp)
+            .size(size)
             .clip(CircleShape)
             .background(color.copy(alpha = 0.20f)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(iconSize))
     }
 }
 
@@ -978,13 +1011,124 @@ private data class HabitDraft(
     val active: Boolean,
 )
 
+private enum class DayPeriod {
+    AM,
+    PM,
+}
+
 @Composable
-private fun HabitEditorDialog(
+private fun HabitKindSegmentedControl(
+    selected: HabitKind,
+    onSelected: (HabitKind) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(14.dp), tintStrength = 0.08f)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        HabitKindOption(
+            text = "Build",
+            selected = selected == HabitKind.Build,
+            modifier = Modifier.weight(1f),
+            onClick = { onSelected(HabitKind.Build) },
+        )
+        HabitKindOption(
+            text = "Quit",
+            selected = selected == HabitKind.Quit,
+            modifier = Modifier.weight(1f),
+            onClick = { onSelected(HabitKind.Quit) },
+        )
+    }
+}
+
+@Composable
+private fun HabitKindOption(
+    text: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) Cyan.copy(alpha = 0.90f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else MutedText,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun DayPeriodSegmentedControl(
+    selected: DayPeriod,
+    onSelected: (DayPeriod) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .height(56.dp)
+            .glassSurface(RoundedCornerShape(14.dp), tintStrength = 0.08f)
+            .padding(3.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        DayPeriodOption(
+            text = "AM",
+            selected = selected == DayPeriod.AM,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { onSelected(DayPeriod.AM) },
+        )
+        DayPeriodOption(
+            text = "PM",
+            selected = selected == DayPeriod.PM,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { onSelected(DayPeriod.PM) },
+        )
+    }
+}
+
+@Composable
+private fun DayPeriodOption(
+    text: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) Cyan.copy(alpha = 0.90f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(vertical = 2.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else MutedText,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun HabitEditorPage(
     habit: Habit?,
     initialKind: HabitKind,
     onDismiss: () -> Unit,
     onSave: (HabitDraft) -> Unit,
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     var name by remember { mutableStateOf(habit?.name ?: "") }
     var kind by remember { mutableStateOf(habit?.kind ?: initialKind) }
     var goalType by remember { mutableStateOf(habit?.goalType ?: HabitGoalType.Time) }
@@ -993,55 +1137,87 @@ private fun HabitEditorDialog(
     var unitLabel by remember { mutableStateOf(habit?.unitLabel ?: "times") }
     var colorIndex by remember { mutableStateOf(habit?.colorIndex ?: 0) }
     var reminderEnabled by remember { mutableStateOf(habit?.reminderEnabled ?: false) }
-    var reminderHour by remember { mutableStateOf((habit?.reminderHour ?: 20).toString()) }
+    val initialReminderHour = habit?.reminderHour ?: 20
+    var reminderHour by remember { mutableStateOf(hour12(initialReminderHour).toString()) }
     var reminderMinute by remember { mutableStateOf((habit?.reminderMinute ?: 0).toString().padStart(2, '0')) }
+    var reminderPeriod by remember { mutableStateOf(if (initialReminderHour < 12) DayPeriod.AM else DayPeriod.PM) }
     var active by remember { mutableStateOf(habit?.active ?: true) }
+    var inputFocused by remember { mutableStateOf(false) }
+    val inputModifier = Modifier.onFocusChanged { inputFocused = it.isFocused }
     val canSave = name.trim().isNotBlank()
+    fun saveDraft() {
+        if (!canSave) return
+        onSave(
+            HabitDraft(
+                name = name,
+                kind = kind,
+                goalType = if (kind == HabitKind.Quit) HabitGoalType.Check else goalType,
+                targetMinutes = targetMinutes.toIntOrNull() ?: 0,
+                targetCount = targetCount.toIntOrNull() ?: 0,
+                unitLabel = unitLabel,
+                colorIndex = colorIndex,
+                reminderEnabled = reminderEnabled,
+                reminderHour = hour24(
+                    hour = reminderHour.toIntOrNull() ?: 8,
+                    period = reminderPeriod,
+                ),
+                reminderMinute = reminderMinute.toIntOrNull() ?: 0,
+                active = active,
+            ),
+        )
+    }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                enabled = canSave,
-                onClick = {
-                    onSave(
-                        HabitDraft(
-                            name = name,
-                            kind = kind,
-                            goalType = if (kind == HabitKind.Quit) HabitGoalType.Check else goalType,
-                            targetMinutes = targetMinutes.toIntOrNull() ?: 0,
-                            targetCount = targetCount.toIntOrNull() ?: 0,
-                            unitLabel = unitLabel,
-                            colorIndex = colorIndex,
-                            reminderEnabled = reminderEnabled,
-                            reminderHour = reminderHour.toIntOrNull() ?: 20,
-                            reminderMinute = reminderMinute.toIntOrNull() ?: 0,
-                            active = active,
-                        ),
-                    )
-                },
-            ) { Text("Save") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text(if (habit == null) "Add Habit" else "Edit Habit") },
-        text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    BackHandler {
+        if (inputFocused) {
+            keyboardController?.hide()
+            focusManager.clearFocus()
+        } else {
+            onDismiss()
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(WindowInsets.statusBars.asPaddingValues())
+            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onDismiss, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
+            }
+            Text(
+                if (habit == null) "Add Habit" else "Edit Habit",
+                color = SoftText,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
                 item {
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it.take(40) },
                         label = { Text("Name") },
                         singleLine = true,
+                        modifier = inputModifier,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         colors = habitFieldColors(),
                     )
                 }
                 if (habit == null) {
                     item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            GlassFilterButton("Build", selected = kind == HabitKind.Build, modifier = Modifier.weight(1f), onClick = { kind = HabitKind.Build })
-                            GlassFilterButton("Quit", selected = kind == HabitKind.Quit, modifier = Modifier.weight(1f), onClick = { kind = HabitKind.Quit })
-                        }
+                        HabitKindSegmentedControl(
+                            selected = kind,
+                            onSelected = { kind = it },
+                        )
                     }
                 }
                 if (kind == HabitKind.Build) {
@@ -1059,6 +1235,7 @@ private fun HabitEditorDialog(
                                 onValueChange = { targetMinutes = it.filter(Char::isDigit).take(4) },
                                 label = { Text("Daily minutes") },
                                 singleLine = true,
+                                modifier = inputModifier,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = habitFieldColors(),
                             )
@@ -1072,7 +1249,7 @@ private fun HabitEditorDialog(
                                     onValueChange = { targetCount = it.filter(Char::isDigit).take(4) },
                                     label = { Text("Daily target") },
                                     singleLine = true,
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.weight(1f).onFocusChanged { inputFocused = it.isFocused },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     colors = habitFieldColors(),
                                 )
@@ -1081,7 +1258,7 @@ private fun HabitEditorDialog(
                                     onValueChange = { unitLabel = it.take(16) },
                                     label = { Text("Unit") },
                                     singleLine = true,
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.weight(1f).onFocusChanged { inputFocused = it.isFocused },
                                     colors = habitFieldColors(),
                                 )
                             }
@@ -1118,13 +1295,18 @@ private fun HabitEditorDialog(
                 }
                 if (reminderEnabled) {
                     item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             OutlinedTextField(
                                 value = reminderHour,
-                                onValueChange = { reminderHour = it.filter(Char::isDigit).take(2) },
+                                onValueChange = { value ->
+                                    reminderHour = value.filter(Char::isDigit).take(2)
+                                },
                                 label = { Text("Hour") },
                                 singleLine = true,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).onFocusChanged { inputFocused = it.isFocused },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = habitFieldColors(),
                             )
@@ -1133,9 +1315,14 @@ private fun HabitEditorDialog(
                                 onValueChange = { reminderMinute = it.filter(Char::isDigit).take(2) },
                                 label = { Text("Minute") },
                                 singleLine = true,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).onFocusChanged { inputFocused = it.isFocused },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = habitFieldColors(),
+                            )
+                            DayPeriodSegmentedControl(
+                                selected = reminderPeriod,
+                                onSelected = { reminderPeriod = it },
+                                modifier = Modifier.width(58.dp),
                             )
                         }
                     }
@@ -1149,11 +1336,12 @@ private fun HabitEditorDialog(
                     }
                 }
             }
-        },
-        containerColor = Color(0xFF18181B),
-        titleContentColor = SoftText,
-        textContentColor = SoftText,
-    )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            SecondaryButton(text = "Cancel", modifier = Modifier.weight(1f), onClick = onDismiss)
+            PrimaryButton(text = "Save", modifier = Modifier.weight(1f), enabled = canSave, onClick = ::saveDraft)
+        }
+    }
 }
 
 @Composable
@@ -1266,6 +1454,34 @@ private fun RelapseDialog(
                     colors = habitFieldColors(),
                 )
             }
+        },
+        containerColor = Color(0xFF18181B),
+        titleContentColor = SoftText,
+        textContentColor = SoftText,
+    )
+}
+
+@Composable
+private fun DeleteHabitDialog(
+    habit: Habit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Delete", color = DangerRed)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Delete ${habit.name}?") },
+        text = {
+            Text(
+                "This removes the habit and all of its check-in history.",
+                color = MutedText,
+                style = MaterialTheme.typography.bodyMedium,
+            )
         },
         containerColor = Color(0xFF18181B),
         titleContentColor = SoftText,
@@ -1426,7 +1642,29 @@ private fun formatMinutes(minutes: Int): String {
     }
 }
 
-private fun timeText(hour: Int, minute: Int): String = "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
+private fun timeText(hour: Int, minute: Int): String {
+    val suffix = if (hour < 12) "AM" else "PM"
+    val displayHour = when (val value = hour % 12) {
+        0 -> 12
+        else -> value
+    }
+    return "$displayHour:${minute.toString().padStart(2, '0')} $suffix"
+}
+
+private fun hour12(hour: Int): Int {
+    return when (val value = hour.coerceIn(0, 23) % 12) {
+        0 -> 12
+        else -> value
+    }
+}
+
+private fun hour24(hour: Int, period: DayPeriod): Int {
+    val normalized = hour.coerceIn(1, 12)
+    return when (period) {
+        DayPeriod.AM -> if (normalized == 12) 0 else normalized
+        DayPeriod.PM -> if (normalized == 12) 12 else normalized + 12
+    }
+}
 
 private val habitPalette = listOf(
     Color(0xFF22C55E),
