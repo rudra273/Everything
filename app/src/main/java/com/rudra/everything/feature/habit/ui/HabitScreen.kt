@@ -107,11 +107,21 @@ private enum class HabitTab {
 }
 
 private val quotes = listOf(
-    "Small steps count when they repeat.",
+    "What are you capable of?",
+    "Later? Later the coffee gets cold.",
+    "The problem is, you think you have time.",
+    "You do not always need a logical reason to begin.",
+    "Everything is a win when the goal is to experience.",
+    "Everything may be against you, but you have the madness to continue.",
+    "Remember who you are.",
+    "It is never too late to rebuild yourself.",
+    "Show your prime one more time.",
     "Do the next honest minute.",
-    "Your streak is built today, not someday.",
-    "Progress likes proof. Give it one check.",
-    "Win the day softly, then repeat.",
+    "Your future is listening to what you repeat today.",
+    "Discipline is just self-respect with a schedule.",
+    "Become undeniable, quietly.",
+    "The old you can rest now. Build again.",
+    "Tiny proof beats perfect intention.",
 )
 
 @Composable
@@ -396,9 +406,13 @@ private fun QuoteCard(dashboard: HabitDashboard) {
     StatCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             IconCircle(Icons.Rounded.SelfImprovement, Cyan)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(quote, color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            }
+            Text(
+                text = quote,
+                color = SoftText,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
@@ -416,19 +430,27 @@ private fun DateSelector(
         today.plusDays(1) -> "Tomorrow"
         else -> selectedDate.format(DateTimeFormatter.ofPattern("EEE, dd MMM"))
     }
-    StatCard(compact = true) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            IconButton(onClick = onPrevious, modifier = Modifier.size(32.dp)) {
-                Text("<", color = SoftText, fontWeight = FontWeight.Bold)
-            }
-            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(label, color = SoftText, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text(selectedDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy")), color = MutedText, style = MaterialTheme.typography.labelSmall)
-            }
-            IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) {
-                Text(">", color = SoftText, fontWeight = FontWeight.Bold)
-            }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        SecondaryButton(
+            text = "<",
+            modifier = Modifier.width(52.dp),
+            textStyle = MaterialTheme.typography.titleSmall,
+            onClick = onPrevious,
+        )
+        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(label, color = SoftText, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(selectedDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy")), color = MutedText, style = MaterialTheme.typography.labelSmall)
         }
+        SecondaryButton(
+            text = ">",
+            modifier = Modifier.width(52.dp),
+            textStyle = MaterialTheme.typography.titleSmall,
+            onClick = onNext,
+        )
     }
 }
 
