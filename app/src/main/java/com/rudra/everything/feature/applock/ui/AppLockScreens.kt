@@ -275,6 +275,7 @@ fun DashboardScreen(
     onOpenEditor: () -> Unit,
     onOpenHabit: () -> Unit,
     onOpenExpenses: () -> Unit,
+    onOpenDnsManager: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -287,8 +288,12 @@ fun DashboardScreen(
     val showHabit = matchesTool("Habit")
     val showExpenses = matchesTool("Expenses")
     val showEditor = matchesTool("Editor")
+    val showDnsManager = matchesTool("DNS") ||
+        matchesTool("Ad Block") ||
+        matchesTool("Private DNS")
     val showSecurity = showAppLock || showKeyStore || showNotes
     val showProductivity = showHabit || showExpenses || showEditor
+    val showNetwork = showDnsManager
     AppSurface {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -410,7 +415,26 @@ fun DashboardScreen(
                         onClick = onOpenEditor,
                     )
                 }
-                if (!showSecurity && !showProductivity) {
+                if (showNetwork) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            text = "Network",
+                            color = SoftText,
+                            style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.sp,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                        )
+                    }
+                }
+                if (showDnsManager) item {
+                    ToolGridItem(
+                        iconResId = com.rudra.everything.R.drawable.ic_dns_manager,
+                        title = "DNS",
+                        onClick = onOpenDnsManager,
+                    )
+                }
+                if (!showSecurity && !showProductivity && !showNetwork) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             text = "No tools found",

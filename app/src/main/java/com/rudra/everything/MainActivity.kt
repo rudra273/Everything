@@ -33,6 +33,7 @@ import com.rudra.everything.feature.applock.ui.BiometricSetupScreen
 import com.rudra.everything.feature.applock.ui.DashboardScreen
 import com.rudra.everything.feature.applock.ui.PermissionGrantScreen
 import com.rudra.everything.feature.applock.ui.SetupCredentialScreen
+import com.rudra.everything.feature.dns.ui.DnsManagerScreen
 import com.rudra.everything.feature.editor.ui.EditorScreen
 import com.rudra.everything.feature.expense.ui.ExpenseScreen
 import com.rudra.everything.feature.habit.ui.HabitScreen
@@ -76,6 +77,7 @@ private enum class MainRoute {
     Editor,
     Habit,
     Expenses,
+    DnsManager,
     BackupRestore,
     Settings,
     Theme,
@@ -196,6 +198,7 @@ private fun EverythingApp(
             onOpenEditor = { route = MainRoute.Editor },
             onOpenHabit = { route = MainRoute.Habit },
             onOpenExpenses = { route = MainRoute.Expenses },
+            onOpenDnsManager = { route = MainRoute.DnsManager },
             onOpenSettings = { route = MainRoute.Settings },
         )
 
@@ -231,6 +234,10 @@ private fun EverythingApp(
 
         route == MainRoute.Habit -> HabitScreen(
             container = container,
+            onBack = { route = MainRoute.Dashboard },
+        )
+
+        route == MainRoute.DnsManager -> DnsManagerScreen(
             onBack = { route = MainRoute.Dashboard },
         )
 
