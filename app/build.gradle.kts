@@ -66,6 +66,8 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.argon2kt)
     implementation(libs.material)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
     implementation(libs.play.services.auth)
     implementation(libs.sqlcipher)
     ksp(libs.androidx.room.compiler)
