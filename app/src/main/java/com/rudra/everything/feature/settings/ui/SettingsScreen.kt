@@ -32,9 +32,11 @@ import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NoteAlt
+import androidx.compose.material.icons.rounded.Policy
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -157,6 +159,8 @@ fun SettingsScreen(
     container: AppContainer,
     onBack: () -> Unit,
     onOpenBackupRestore: () -> Unit,
+    onOpenAboutApp: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit,
     onOpenTheme: () -> Unit,
 ) {
     BackHandler { onBack() }
@@ -299,6 +303,20 @@ fun SettingsScreen(
                 title = "Backup & Restore",
                 subtitle = "Backup password, Google Drive, and local files",
                 onClick = onOpenBackupRestore,
+            )
+
+            SettingsNavigationRow(
+                icon = Icons.Rounded.Info,
+                title = "About Everything",
+                subtitle = "Tools, security model, and backup details",
+                onClick = onOpenAboutApp,
+            )
+
+            SettingsNavigationRow(
+                icon = Icons.Rounded.Policy,
+                title = "Privacy Policy",
+                subtitle = "Data handling, permissions, and your choices",
+                onClick = onOpenPrivacyPolicy,
             )
 
             SettingsSectionTitle("Protection")
