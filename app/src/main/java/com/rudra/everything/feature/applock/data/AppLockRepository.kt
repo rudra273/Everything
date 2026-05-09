@@ -33,32 +33,6 @@ class AppLockRepository(
         )
     }
 
-    suspend fun exportRecords(): List<AppLockBackupRecord> {
-        return lockedRecords.value.map { record ->
-            AppLockBackupRecord(
-                packageName = record.packageName,
-                label = record.label,
-                enabled = true,
-                updatedAtMillis = record.updatedAtMillis,
-            )
-        }
-    }
-
-    suspend fun importRecords(records: List<AppLockBackupRecord>) {
-        lockedPackageCache.putRecords(
-            records
-                .filter { it.enabled }
-                .map { record ->
-                    LockedPackageRecord(
-                        packageName = record.packageName,
-                        label = record.label,
-                        updatedAtMillis = record.updatedAtMillis,
-                    )
-                },
-        )
-        lockedRecords.value = lockedPackageCache.getRecords().orEmpty()
-    }
-
     private fun List<LockedPackageRecord>.toLockedApps(): List<LockedApp> {
         return sortedBy { it.label.lowercase() }
             .mapIndexed { index, record ->
@@ -71,10 +45,3 @@ class AppLockRepository(
             }
     }
 }
-
-data class AppLockBackupRecord(
-    val packageName: String,
-    val label: String,
-    val enabled: Boolean,
-    val updatedAtMillis: Long,
-)

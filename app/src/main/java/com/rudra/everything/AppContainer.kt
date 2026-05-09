@@ -12,7 +12,6 @@ import com.rudra.everything.core.security.AndroidKeyStoreCrypto
 import com.rudra.everything.core.security.CredentialRepository
 import com.rudra.everything.core.security.PasswordHasher
 import com.rudra.everything.core.security.SensitiveValueCipher
-import com.rudra.everything.feature.applock.data.AppLockBackupContributor
 import com.rudra.everything.feature.applock.data.AppLockRepository
 import com.rudra.everything.feature.applock.data.LockedPackageCache
 import com.rudra.everything.feature.applock.domain.InstalledAppProvider
@@ -70,7 +69,6 @@ class AppContainer(context: Context) {
         EverythingBackupService(
             crypto = BackupCrypto(PasswordHasher()),
             contributors = listOf(
-                AppLockBackupContributor(appLockRepository),
                 KeyStoreBackupContributor(keyStoreRepository),
                 ExpenseBackupContributor(expenseRepository),
                 SecureNoteBackupContributor(secureNoteRepository),

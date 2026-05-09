@@ -12,6 +12,11 @@ import com.rudra.everything.core.data.SecureSettingRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+private const val BACKUP_TOOL_KEY_STORE = "key_store"
+private const val BACKUP_TOOL_NOTES = "secure_notes"
+private const val BACKUP_TOOL_EXPENSES = "expenses"
+private const val BACKUP_TOOL_HABITS = "habits"
+
 class DriveBackupWorker(
     appContext: Context,
     params: WorkerParameters,
@@ -53,7 +58,11 @@ class DriveBackupWorker(
 
         val passwordChars = password.toCharArray()
         runCatching {
-            val encryptedBackup = container.backupService.exportEncrypted(passwordChars)
+            val includedToolKeys = includedBackupToolKeys(
+                includeExpenses = settings.getBoolean(SecureSettingRepository.KEY_BACKUP_INCLUDE_EXPENSES) != false,
+                includeHabits = settings.getBoolean(SecureSettingRepository.KEY_BACKUP_INCLUDE_HABITS) != false,
+            )
+            val encryptedBackup = container.backupService.exportEncrypted(passwordChars, includedToolKeys)
             val upload = GoogleDriveBackupClient().uploadBackup(
                 accessToken = accessToken,
                 encryptedBackup = encryptedBackup,
@@ -88,5 +97,17 @@ class DriveBackupWorker(
 
     private companion object {
         const val DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
+    }
+}
+
+private fun includedBackupToolKeys(
+    includeExpenses: Boolean,
+    includeHabits: Boolean,
+): Set<String> {
+    return buildSet {
+        add(BACKUP_TOOL_KEY_STORE)
+        add(BACKUP_TOOL_NOTES)
+        if (includeExpenses) add(BACKUP_TOOL_EXPENSES)
+        if (includeHabits) add(BACKUP_TOOL_HABITS)
     }
 }

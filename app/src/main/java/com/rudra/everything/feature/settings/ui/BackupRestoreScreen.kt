@@ -51,6 +51,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -100,6 +101,10 @@ import kotlinx.coroutines.withContext
 private const val DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
 private const val GOOGLE_ACCOUNT_TYPE = "com.google"
 private const val LOCAL_BACKUP_MIME_TYPE = "application/vnd.everything.backup+json"
+private const val BACKUP_TOOL_KEY_STORE = "key_store"
+private const val BACKUP_TOOL_NOTES = "secure_notes"
+private const val BACKUP_TOOL_EXPENSES = "expenses"
+private const val BACKUP_TOOL_HABITS = "habits"
 
 private enum class BackupSheet {
     Password,
@@ -144,8 +149,18 @@ fun BackupRestoreScreen(
     val driveLastBackupSizeBytes by container.secureSettingRepository
         .observeString(SecureSettingRepository.KEY_DRIVE_LAST_BACKUP_SIZE_BYTES)
         .collectAsStateWithLifecycle(initialValue = null)
+    val includeExpenses by container.secureSettingRepository
+        .observeBoolean(SecureSettingRepository.KEY_BACKUP_INCLUDE_EXPENSES)
+        .collectAsStateWithLifecycle(initialValue = true)
+    val includeHabits by container.secureSettingRepository
+        .observeBoolean(SecureSettingRepository.KEY_BACKUP_INCLUDE_HABITS)
+        .collectAsStateWithLifecycle(initialValue = true)
 
     val driveSchedule = DriveBackupSchedule.fromValue(driveScheduleValue)
+    val backupToolKeys = includedBackupToolKeys(
+        includeExpenses = includeExpenses != false,
+        includeHabits = includeHabits != false,
+    )
     var activeSheet by remember { mutableStateOf<BackupSheet?>(null) }
     var driveBackups by remember { mutableStateOf<List<DriveBackupFile>>(emptyList()) }
     var driveBusy by remember { mutableStateOf(false) }
@@ -248,7 +263,7 @@ fun BackupRestoreScreen(
             val passwordChars = password.toCharArray()
             runCatching {
                 val encryptedBackup = withContext(Dispatchers.Default) {
-                    container.backupService.exportEncrypted(passwordChars)
+                    container.backupService.exportEncrypted(passwordChars, backupToolKeys)
                 }
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { writer ->
@@ -342,7 +357,7 @@ fun BackupRestoreScreen(
             val passwordChars = password.toCharArray()
             runCatching {
                 val encryptedBackup = withContext(Dispatchers.Default) {
-                    container.backupService.exportEncrypted(passwordChars)
+                    container.backupService.exportEncrypted(passwordChars, backupToolKeys)
                 }
                 val upload = withContext(Dispatchers.IO) {
                     googleDriveBackupClient.uploadBackup(
@@ -629,6 +644,26 @@ fun BackupRestoreScreen(
                         subtitle = driveSchedule.shortLabel(),
                         onClick = { activeSheet = BackupSheet.Schedule },
                     )
+                    BackupContentOptions(
+                        includeExpenses = includeExpenses != false,
+                        includeHabits = includeHabits != false,
+                        onExpensesChange = { enabled ->
+                            scope.launch {
+                                container.secureSettingRepository.putBoolean(
+                                    SecureSettingRepository.KEY_BACKUP_INCLUDE_EXPENSES,
+                                    enabled,
+                                )
+                            }
+                        },
+                        onHabitsChange = { enabled ->
+                            scope.launch {
+                                container.secureSettingRepository.putBoolean(
+                                    SecureSettingRepository.KEY_BACKUP_INCLUDE_HABITS,
+                                    enabled,
+                                )
+                            }
+                        },
+                    )
                     ManualBackupCard(
                         busy = localBusy,
                         onBackup = ::startLocalBackup,
@@ -759,6 +794,58 @@ fun BackupRestoreScreen(
             textContentColor = SoftText,
             shape = RoundedCornerShape(14.dp),
         )
+    }
+}
+
+private fun includedBackupToolKeys(
+    includeExpenses: Boolean,
+    includeHabits: Boolean,
+): Set<String> {
+    return buildSet {
+        add(BACKUP_TOOL_KEY_STORE)
+        add(BACKUP_TOOL_NOTES)
+        if (includeExpenses) add(BACKUP_TOOL_EXPENSES)
+        if (includeHabits) add(BACKUP_TOOL_HABITS)
+    }
+}
+
+@Composable
+private fun BackupContentOptions(
+    includeExpenses: Boolean,
+    includeHabits: Boolean,
+    onExpensesChange: (Boolean) -> Unit,
+    onHabitsChange: (Boolean) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(12.dp), selected = false, tintStrength = 0.06f)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+            Text("Backup content", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "Key Store and Secure Notes are always included. App Lock is never included.",
+                color = MutedText,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            BackupContentSwitchRow("Expenses", includeExpenses, onExpensesChange)
+            BackupContentSwitchRow("Habits", includeHabits, onHabitsChange)
+    }
+}
+
+@Composable
+private fun BackupContentSwitchRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, color = SoftText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

@@ -6,9 +6,14 @@ class EverythingBackupService(
     private val crypto: BackupCrypto,
     private val contributors: List<BackupContributor>,
 ) {
-    suspend fun exportEncrypted(password: CharArray): String {
+    suspend fun exportEncrypted(
+        password: CharArray,
+        includedToolKeys: Set<String>? = null,
+    ): String {
         val tools = JSONObject()
-        contributors.forEach { contributor ->
+        contributors
+            .filter { contributor -> includedToolKeys == null || contributor.toolKey in includedToolKeys }
+            .forEach { contributor ->
             tools.put(
                 contributor.toolKey,
                 JSONObject()
