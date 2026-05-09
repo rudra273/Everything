@@ -272,7 +272,7 @@ fun ExpenseScreen(
                 if (todaysBills.isEmpty()) {
                     item { EmptyExpenseState("No bills due today") }
                 } else {
-                    items(todaysBills, key = { it.entryId }) { entry ->
+                    items(todaysBills, key = { "today-bill-${it.entryId}" }) { entry ->
                         ExpenseEntryRow(
                             entry = entry,
                             onLongPress = { actionEntry = entry },
@@ -288,7 +288,7 @@ fun ExpenseScreen(
                 if (currentSummary.entries.isEmpty()) {
                     item { EmptyExpenseState("No expenses for this month") }
                 } else {
-                    items(currentSummary.entries, key = { it.entryId }) { entry ->
+                    items(currentSummary.entries, key = { "month-entry-${it.entryId}" }) { entry ->
                         ExpenseEntryRow(
                             entry = entry,
                             onLongPress = { actionEntry = entry },
@@ -304,7 +304,7 @@ fun ExpenseScreen(
                 if (currentSummary.monthlyBills.isEmpty()) {
                     item { EmptyExpenseState("No active static monthly bills") }
                 } else {
-                    items(currentSummary.monthlyBills, key = { it.billId }) { bill ->
+                    items(currentSummary.monthlyBills, key = { "active-bill-${it.billId}" }) { bill ->
                         MonthlyBillRow(
                             bill = bill,
                             onStop = { stopBill = bill },

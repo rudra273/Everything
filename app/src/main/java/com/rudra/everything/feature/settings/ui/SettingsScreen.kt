@@ -174,13 +174,15 @@ fun SettingsScreen(
     var appLockToolLocked by remember { mutableStateOf<Boolean?>(null) }
     var keyStoreToolLocked by remember { mutableStateOf<Boolean?>(null) }
     var notesToolLocked by remember { mutableStateOf<Boolean?>(null) }
+    var screenshotProtection by remember { mutableStateOf<Boolean?>(null) }
     var accessibilityEnabled by remember {
         mutableStateOf(AppLockPermissionChecker.hasAccessibilityService(context))
     }
     val settingsLoaded = biometricEnabled != null &&
         appLockToolLocked != null &&
         keyStoreToolLocked != null &&
-        notesToolLocked != null
+        notesToolLocked != null &&
+        screenshotProtection != null
 
     val settingsPackage = remember(context) { SettingsPackageResolver.resolve(context) }
     var isAdminActive by remember { mutableStateOf(isDeviceAdminActive(context)) }
@@ -199,6 +201,9 @@ fun SettingsScreen(
     var showBiometricDisableConfirm by remember { mutableStateOf(false) }
     var biometricDisablePin by remember { mutableStateOf("") }
     var biometricDisableError by remember { mutableStateOf<String?>(null) }
+    var showScreenshotDisableConfirm by remember { mutableStateOf(false) }
+    var screenshotDisablePin by remember { mutableStateOf("") }
+    var screenshotDisableError by remember { mutableStateOf<String?>(null) }
     var pendingUtilityDisable by remember { mutableStateOf<UtilityLockDisableRequest?>(null) }
     var utilityDisablePin by remember { mutableStateOf("") }
     var utilityDisableError by remember { mutableStateOf<String?>(null) }
@@ -226,6 +231,12 @@ fun SettingsScreen(
         container.secureSettingRepository
             .observeBoolean(SecureSettingRepository.KEY_TOOL_LOCK_NOTES)
             .collect { locked -> notesToolLocked = locked ?: true }
+    }
+
+    LaunchedEffect(Unit) {
+        container.secureSettingRepository
+            .observeBoolean(SecureSettingRepository.KEY_SCREENSHOT_PROTECTION)
+            .collect { enabled -> screenshotProtection = enabled != false }
     }
 
     fun requestUtilityLockChange(key: String, title: String, locked: Boolean) {
@@ -497,6 +508,56 @@ fun SettingsScreen(
                                 showBiometricDisableConfirm = true
                                 biometricDisablePin = ""
                                 biometricDisableError = null
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Cyan,
+                            checkedTrackColor = Cyan.copy(alpha = 0.22f),
+                            uncheckedThumbColor = SoftText,
+                            uncheckedTrackColor = Color.Transparent,
+                            uncheckedBorderColor = SoftText.copy(alpha = 0.22f),
+                        ),
+                    )
+                }
+            }
+
+            GlassSettingsBlock(selected = screenshotProtection == true) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SettingsIconBadge(Icons.Rounded.VisibilityOff, selected = screenshotProtection == true)
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Screenshot Protection",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = if (screenshotProtection == true) {
+                                "Screenshots and screen recording are blocked"
+                            } else {
+                                "Screenshots are allowed until turned on again"
+                            },
+                            color = MutedText,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(
+                        modifier = Modifier.scale(0.78f),
+                        checked = screenshotProtection == true,
+                        onCheckedChange = { enable ->
+                            if (enable) {
+                                scope.launch {
+                                    container.secureSettingRepository.putBoolean(
+                                        SecureSettingRepository.KEY_SCREENSHOT_PROTECTION,
+                                        true,
+                                    )
+                                }
+                            } else {
+                                showScreenshotDisableConfirm = true
+                                screenshotDisablePin = ""
+                                screenshotDisableError = null
                             }
                         },
                         colors = SwitchDefaults.colors(
@@ -802,6 +863,78 @@ fun SettingsScreen(
                         showBiometricDisableConfirm = false
                         biometricDisablePin = ""
                         biometricDisableError = null
+                    },
+                ) {
+                    Text("Cancel", color = MutedText)
+                }
+            },
+            containerColor = Color(0xFF101417),
+            titleContentColor = SoftText,
+            textContentColor = SoftText,
+            shape = RoundedCornerShape(14.dp),
+        )
+    }
+
+    if (showScreenshotDisableConfirm) {
+        AlertDialog(
+            onDismissRequest = {
+                showScreenshotDisableConfirm = false
+                screenshotDisablePin = ""
+                screenshotDisableError = null
+            },
+            title = { Text("Allow screenshots", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Enter your master PIN to turn off screenshot protection.",
+                        color = MutedText,
+                    )
+                    PinTextField(
+                        value = screenshotDisablePin,
+                        onValueChange = {
+                            screenshotDisablePin = it.filter(Char::isDigit).take(12)
+                            screenshotDisableError = null
+                        },
+                        label = "Master PIN",
+                    )
+                    screenshotDisableError?.let {
+                        Text(it, color = Color(0xFFFFA8A8), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = screenshotDisablePin.length >= 4,
+                    onClick = {
+                        scope.launch {
+                            val pin = screenshotDisablePin
+                            val valid = withContext(Dispatchers.Default) {
+                                container.credentialRepository.verify(pin.toCharArray())
+                            }
+                            if (valid) {
+                                container.secureSettingRepository.putBoolean(
+                                    SecureSettingRepository.KEY_SCREENSHOT_PROTECTION,
+                                    false,
+                                )
+                                showScreenshotDisableConfirm = false
+                                screenshotDisablePin = ""
+                                screenshotDisableError = null
+                            } else {
+                                screenshotDisablePin = ""
+                                screenshotDisableError = "Wrong PIN"
+                            }
+                        }
+                    },
+                ) {
+                    Text("Confirm", color = Cyan, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showScreenshotDisableConfirm = false
+                        screenshotDisablePin = ""
+                        screenshotDisableError = null
                     },
                 ) {
                     Text("Cancel", color = MutedText)

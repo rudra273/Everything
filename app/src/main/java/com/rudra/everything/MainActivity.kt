@@ -107,6 +107,7 @@ private fun EverythingApp(
     var biometricMessage by remember { mutableStateOf<String?>(null) }
     var biometricPreferenceLoaded by remember { mutableStateOf(false) }
     var biometricEnabled by remember { mutableStateOf<Boolean?>(null) }
+    var screenshotProtection by remember { mutableStateOf(true) }
     var lockedApps by remember { mutableStateOf(emptyList<LockedApp>()) }
     var accessibilityEnabled by remember {
         mutableStateOf(AppLockPermissionChecker.hasAccessibilityService(context))
@@ -123,6 +124,15 @@ private fun EverythingApp(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    DisposableEffect(screenshotProtection) {
+        if (screenshotProtection) {
+            activity.window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        onDispose { }
+    }
+
     LaunchedEffect(Unit) {
         val repository = withContext(Dispatchers.IO) {
             container.secureSettingRepository
@@ -137,6 +147,13 @@ private fun EverythingApp(
                 biometricEnabled = enabled
                 biometricPreferenceLoaded = true
             }
+    }
+
+    LaunchedEffect(Unit) {
+        container.secureSettingRepository
+            .observeBoolean(SecureSettingRepository.KEY_SCREENSHOT_PROTECTION)
+            .catch { screenshotProtection = true }
+            .collect { enabled -> screenshotProtection = enabled != false }
     }
 
     LaunchedEffect(Unit) {
