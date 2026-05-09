@@ -104,11 +104,15 @@ private fun EverythingApp(
     var biometricPreferenceLoaded by remember { mutableStateOf(false) }
     var biometricEnabled by remember { mutableStateOf<Boolean?>(null) }
     var lockedApps by remember { mutableStateOf(emptyList<LockedApp>()) }
+    var accessibilityEnabled by remember {
+        mutableStateOf(AppLockPermissionChecker.hasAccessibilityService(context))
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 permissions = AppLockPermissionChecker.check(context)
+                accessibilityEnabled = AppLockPermissionChecker.hasAccessibilityService(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -141,8 +145,10 @@ private fun EverythingApp(
             .collect { apps -> lockedApps = apps }
     }
 
-    LaunchedEffect(permissions.allGranted, credentialReady, lockedApps.size) {
-        if (permissions.allGranted && credentialReady) {
+    LaunchedEffect(permissions.allGranted, credentialReady, lockedApps.size, accessibilityEnabled) {
+        if (accessibilityEnabled) {
+            AppMonitorService.stop(context)
+        } else if (permissions.allGranted && credentialReady) {
             AppMonitorService.start(context)
         }
     }
@@ -214,7 +220,8 @@ private fun EverythingApp(
             onBack = { route = MainRoute.Dashboard },
             onSelectionChanged = {
                 permissions = AppLockPermissionChecker.check(context)
-                if (permissions.allGranted) {
+                accessibilityEnabled = AppLockPermissionChecker.hasAccessibilityService(context)
+                if (permissions.allGranted && !accessibilityEnabled) {
                     AppMonitorService.start(context)
                 }
             },

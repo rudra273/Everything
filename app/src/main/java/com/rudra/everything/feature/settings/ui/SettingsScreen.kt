@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Fingerprint
@@ -75,6 +76,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.fragment.app.FragmentActivity
 import com.rudra.everything.AppContainer
 import com.rudra.everything.core.data.SecureSettingRepository
+import com.rudra.everything.core.permissions.AppLockPermissionChecker
+import com.rudra.everything.core.permissions.PermissionIntents
 import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.security.EverythingDeviceAdmin
 import com.rudra.everything.core.ui.AppBackButton
@@ -167,6 +170,9 @@ fun SettingsScreen(
     var appLockToolLocked by remember { mutableStateOf<Boolean?>(null) }
     var keyStoreToolLocked by remember { mutableStateOf<Boolean?>(null) }
     var notesToolLocked by remember { mutableStateOf<Boolean?>(null) }
+    var accessibilityEnabled by remember {
+        mutableStateOf(AppLockPermissionChecker.hasAccessibilityService(context))
+    }
     val settingsLoaded = biometricEnabled != null &&
         appLockToolLocked != null &&
         keyStoreToolLocked != null &&
@@ -234,6 +240,7 @@ fun SettingsScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 val wasAdmin = isAdminActive
                 isAdminActive = isDeviceAdminActive(context)
+                accessibilityEnabled = AppLockPermissionChecker.hasAccessibilityService(context)
                 if (!wasAdmin && isAdminActive) {
                     scope.launch {
                         setSettingsLocked(container, settingsPackage, locked = true)
@@ -627,6 +634,22 @@ fun SettingsScreen(
                 )
             }
 
+            SettingsNavigationRow(
+                icon = Icons.Rounded.AccessibilityNew,
+                title = "Reliable App Lock",
+                subtitle = if (accessibilityEnabled) {
+                    "Accessibility detection is enabled"
+                } else {
+                    "Enable stronger locked-app detection"
+                },
+                selected = accessibilityEnabled,
+                onClick = {
+                    runCatching {
+                        context.startActivity(PermissionIntents.accessibilitySettings())
+                    }
+                },
+            )
+
             GlassSettingsBlock(
                 selected = appLockToolLocked == true ||
                     keyStoreToolLocked == true ||
@@ -875,9 +898,10 @@ private fun SettingsNavigationRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
+    selected: Boolean = false,
     onClick: () -> Unit,
 ) {
-    GlassSettingsBlock(selected = false) {
+    GlassSettingsBlock(selected = selected) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -885,7 +909,7 @@ private fun SettingsNavigationRow(
                 .clickable(onClick = onClick),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SettingsIconBadge(icon, selected = false)
+            SettingsIconBadge(icon, selected = selected)
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(

@@ -14,6 +14,7 @@ import com.rudra.everything.core.security.PasswordHasher
 import com.rudra.everything.core.security.SensitiveValueCipher
 import com.rudra.everything.feature.applock.data.AppLockBackupContributor
 import com.rudra.everything.feature.applock.data.AppLockRepository
+import com.rudra.everything.feature.applock.data.LockedPackageCache
 import com.rudra.everything.feature.applock.domain.InstalledAppProvider
 import com.rudra.everything.feature.expense.data.ExpenseBackupContributor
 import com.rudra.everything.feature.expense.data.ExpenseRepository
@@ -30,6 +31,7 @@ class AppContainer(context: Context) {
     val keyStoreCrypto = AndroidKeyStoreCrypto()
     val sensitiveValueCipher = SensitiveValueCipher(keyStoreCrypto)
     val credentialRepository = CredentialRepository(appContext, PasswordHasher())
+    val lockedPackageCache = LockedPackageCache(appContext)
 
     val database: EverythingDatabase by lazy {
         val passphraseProvider = DatabasePassphraseProvider(appContext, keyStoreCrypto)
@@ -41,7 +43,7 @@ class AppContainer(context: Context) {
     }
 
     val appLockRepository: AppLockRepository by lazy {
-        AppLockRepository(database.lockedAppDao(), sensitiveValueCipher)
+        AppLockRepository(lockedPackageCache)
     }
 
     val keyStoreRepository: KeyStoreRepository by lazy {

@@ -10,6 +10,6 @@ class EverythingApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
-        AppLockSessionManager.clearExpired()
+        AppLockSessionManager.clearAll()
     }
 }

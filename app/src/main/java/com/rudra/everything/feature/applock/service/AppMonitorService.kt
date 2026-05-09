@@ -1,8 +1,10 @@
 package com.rudra.everything.feature.applock.service
 
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -32,6 +34,14 @@ class AppMonitorService : Service() {
     private var biometricEnabled = false
     private var lastForegroundPackage: String? = null
     private var activeActivityLockPackage: String? = null
+    private val sessionResetReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF,
+                Intent.ACTION_USER_PRESENT -> resetLockSession()
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -42,12 +52,18 @@ class AppMonitorService : Service() {
             credentialRepository = (application as EverythingApplication).container.credentialRepository,
             onBiometricRequested = { packageName -> launchActivityLockScreen(packageName) },
         )
+        registerSessionResetReceiver()
         observeLockedApps()
         observeBiometricSetting()
         monitorForegroundApps()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (AppLockPermissionChecker.hasAccessibilityService(this)) {
+            mainHandler.post { overlayController.dismiss() }
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (!AppLockPermissionChecker.hasUsageAccess(this)) {
             stopSelf()
             return START_NOT_STICKY
@@ -58,18 +74,40 @@ class AppMonitorService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        runCatching { unregisterReceiver(sessionResetReceiver) }
+        if (!AppLockPermissionChecker.hasAccessibilityService(this)) {
+            resetLockSession()
+        }
         mainHandler.post { overlayController.dismiss() }
         scope.cancel()
         super.onDestroy()
     }
 
+    private fun registerSessionResetReceiver() {
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        registerReceiver(sessionResetReceiver, filter)
+    }
+
+    private fun resetLockSession() {
+        AppLockSessionManager.clearAll()
+        activeActivityLockPackage = null
+        lastForegroundPackage = null
+    }
+
     private fun observeLockedApps() {
         val repository = (application as EverythingApplication).container.appLockRepository
         scope.launch {
+            lockedPackages = repository.getLockedPackages()
+
             repository.observeLockedApps()
                 .catch { lockedPackages = emptySet() }
                 .collect { apps ->
                     lockedPackages = apps.map { it.packageName }.toSet()
+                    (application as EverythingApplication).container.lockedPackageCache
+                        .putPackages(lockedPackages)
                 }
         }
     }
@@ -88,20 +126,28 @@ class AppMonitorService : Service() {
     private fun monitorForegroundApps() {
         scope.launch {
             while (true) {
+                if (AppLockPermissionChecker.hasAccessibilityService(this@AppMonitorService)) {
+                    mainHandler.post { overlayController.dismiss() }
+                    stopSelf()
+                    return@launch
+                }
+
                 val foregroundApp = runCatching { detector.currentForegroundApp() }.getOrNull()
                 val foregroundPackage = foregroundApp?.packageName
-                if (foregroundPackage != null && foregroundPackage != lastForegroundPackage) {
+                if (foregroundPackage != lastForegroundPackage) {
                     lastForegroundPackage = foregroundPackage
                     if (foregroundPackage == packageName && activeActivityLockPackage != null) {
-                        AppLockSessionManager.clearExpired()
-                    } else {
+                        // Keep the active challenge in front without clearing the target session.
+                    } else if (foregroundPackage != null) {
                         if (foregroundPackage != packageName) {
                             activeActivityLockPackage = null
                         }
                         AppLockSessionManager.keepOnly(foregroundPackage)
+                    } else {
+                        // App went to background and no new app came to foreground
+                        activeActivityLockPackage = null
+                        AppLockSessionManager.clearAll()
                     }
-                } else {
-                    AppLockSessionManager.clearExpired()
                 }
 
                 val shouldLock = foregroundPackage != null &&
