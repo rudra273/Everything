@@ -292,13 +292,14 @@ fun DashboardScreen(
     val showDnsManager = matchesTool("DNS") ||
         matchesTool("Ad Block") ||
         matchesTool("Private DNS")
-    val showFileLocker = matchesTool("File Locker") ||
+    val showFileLocker = matchesTool("File Vault") ||
+        matchesTool("File Locker") ||
         matchesTool("Hide Files") ||
         matchesTool("Images") ||
         matchesTool("Videos")
-    val showSecurity = showAppLock || showKeyStore || showNotes
+    val showSecurity = showAppLock || showKeyStore || showNotes || showFileLocker
     val showProductivity = showHabit || showExpenses || showEditor
-    val showNetwork = showDnsManager || showFileLocker
+    val showNetwork = showDnsManager
     AppSurface {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -386,6 +387,13 @@ fun DashboardScreen(
                         onClick = onOpenNotes,
                     )
                 }
+                if (showFileLocker) item {
+                    ToolGridItem(
+                        iconResId = com.rudra.everything.R.drawable.ic_file_locker,
+                        title = "File Vault",
+                        onClick = onOpenFileLocker,
+                    )
+                }
                 // PRODUCTIVITY & TOOLS
                 if (showProductivity) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
@@ -437,13 +445,6 @@ fun DashboardScreen(
                         iconResId = com.rudra.everything.R.drawable.ic_dns_manager,
                         title = "DNS",
                         onClick = onOpenDnsManager,
-                    )
-                }
-                if (showFileLocker) item {
-                    ToolGridItem(
-                        iconResId = com.rudra.everything.R.drawable.ic_file_locker,
-                        title = "File Locker",
-                        onClick = onOpenFileLocker,
                     )
                 }
                 if (!showSecurity && !showProductivity && !showNetwork) {

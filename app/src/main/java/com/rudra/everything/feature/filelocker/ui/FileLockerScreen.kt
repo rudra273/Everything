@@ -201,7 +201,7 @@ fun FileLockerScreen(
                     }
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        text = "File Locker",
+                        text = "File Vault",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )
@@ -215,54 +215,45 @@ fun FileLockerScreen(
                     .padding(horizontal = 20.dp)
                     .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                GlassPanel(selected = true) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.VisibilityOff, contentDescription = null, tint = Cyan, modifier = Modifier.size(24.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Gallery hiding only",
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            Text(
-                                text = "Files are not encrypted, not saved in the app database, and not included in backup or restore.",
-                                color = MutedText,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Icon(Icons.Rounded.VisibilityOff, contentDescription = null, tint = Cyan, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Files are not encrypted, not saved in the app database, and not included in backup or restore.",
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
 
-                GlassPanel(selected = false) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "Hidden location",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            text = "Documents/$HIDDEN_FOLDER_NAME stores hidden files with a .locked extension so Gallery does not read them.",
-                            color = MutedText,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        PrimaryButton(
-                            text = if (working) "Working" else "Select Images / Videos",
-                            enabled = !working,
-                            modifier = Modifier.fillMaxWidth(),
-                            leadingIcon = {
-                                Icon(Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                            },
-                            onClick = { pickMediaLauncher.launch(Unit) },
-                        )
-                    }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp),
+                ) {
+                    PrimaryButton(
+                        text = if (working) "Working" else "Select Images / Videos",
+                        enabled = !working,
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = {
+                            Icon(Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                        },
+                        onClick = { pickMediaLauncher.launch(Unit) },
+                    )
                 }
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -273,8 +264,12 @@ fun FileLockerScreen(
                         letterSpacing = 0.sp,
                         modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = { refreshHiddenFiles() }, enabled = !working) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "Refresh", tint = SoftText)
+                    IconButton(
+                        onClick = { refreshHiddenFiles() },
+                        enabled = !working,
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(Icons.Rounded.Refresh, contentDescription = "Refresh", tint = SoftText, modifier = Modifier.size(20.dp))
                     }
                 }
 
@@ -361,17 +356,18 @@ private fun HiddenFileRow(
     onPreview: () -> Unit,
     onSelectedChange: (Boolean) -> Unit,
 ) {
-    GlassPanel(selected = selected) {
+    FileRowPanel(selected = selected) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 58.dp)
+                .heightIn(min = 44.dp)
                 .clickable { onSelectedChange(!selected) },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Checkbox(
                 checked = selected,
                 onCheckedChange = onSelectedChange,
+                modifier = Modifier.size(36.dp),
                 colors = CheckboxDefaults.colors(
                     checkedColor = Cyan,
                     uncheckedColor = MutedText,
@@ -383,18 +379,19 @@ private fun HiddenFileRow(
                     text = file.name,
                     color = SoftText,
                     fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = "${file.mimeType.ifBlank { "media file" }} - ${file.sizeBytes.toReadableSize()}",
                     color = MutedText,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            Spacer(Modifier.width(8.dp))
             SecondaryButton(
                 text = "View",
                 textStyle = MaterialTheme.typography.labelMedium,
@@ -405,6 +402,26 @@ private fun HiddenFileRow(
                 onClick = onPreview,
             )
         }
+    }
+}
+
+@Composable
+private fun FileRowPanel(
+    selected: Boolean,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(
+                shape = RoundedCornerShape(12.dp),
+                selected = selected,
+                tintStrength = 0.05f,
+                shadowElevation = 1f,
+            )
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+    ) {
+        content()
     }
 }
 
