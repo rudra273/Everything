@@ -28,7 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -78,6 +77,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rudra.everything.AppContainer
 import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.security.BiometricAuthenticator
+import com.rudra.everything.core.ui.AppBackButton
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.DeepBackground
 import com.rudra.everything.core.ui.GlassFilterButton
@@ -272,9 +272,7 @@ fun SecureNotesScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-                    }
+                    AppBackButton(onClick = onBack)
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Notes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text("${filteredNotes.size} of ${notes?.size ?: 0} notes", color = Cyan, style = MaterialTheme.typography.bodySmall)
@@ -374,9 +372,7 @@ private fun NotesUnlockScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-            }
+            AppBackButton(onClick = onBack)
             Column(modifier = Modifier.weight(1f)) {
                 Text("Notes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("Unlock private notes", color = Cyan, style = MaterialTheme.typography.bodySmall)
@@ -447,9 +443,7 @@ private fun NoteEditorPage(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { finish() }) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-            }
+            AppBackButton(onClick = { finish() })
             Spacer(Modifier.weight(1f))
             TextButton(onClick = { labelDialogOpen = true }) {
                 Icon(Icons.Rounded.Label, contentDescription = null, tint = Cyan, modifier = Modifier.size(17.dp))

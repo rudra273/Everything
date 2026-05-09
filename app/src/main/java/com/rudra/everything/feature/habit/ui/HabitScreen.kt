@@ -76,6 +76,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rudra.everything.AppContainer
+import com.rudra.everything.core.ui.AppBackButton
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.DangerRed
 import com.rudra.everything.core.ui.GlassBackground
@@ -337,9 +338,7 @@ fun HabitScreen(
 @Composable
 private fun HabitTopBar(onBack: () -> Unit, onAdd: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-        }
+        AppBackButton(onClick = onBack)
         Column(modifier = Modifier.weight(1f)) {
             Text("Habit", color = SoftText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text("Build good days. Leave bad loops.", color = MutedText, style = MaterialTheme.typography.bodySmall)
@@ -1185,9 +1184,7 @@ private fun HabitEditorPage(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onDismiss, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-            }
+            AppBackButton(onClick = onDismiss)
             Text(
                 if (habit == null) "Add Habit" else "Edit Habit",
                 color = SoftText,

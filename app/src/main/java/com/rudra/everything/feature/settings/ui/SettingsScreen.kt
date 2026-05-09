@@ -27,7 +27,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.CloudUpload
@@ -78,6 +77,7 @@ import com.rudra.everything.AppContainer
 import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.security.EverythingDeviceAdmin
+import com.rudra.everything.core.ui.AppBackButton
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.GlassLoadingIndicator
@@ -256,14 +256,7 @@ fun SettingsScreen(
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .glassSurface(RoundedCornerShape(19.dp), selected = false),
-                    ) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-                    }
+                    AppBackButton(onClick = onBack)
                     Spacer(Modifier.width(12.dp))
                     Text(
                         text = "Settings",

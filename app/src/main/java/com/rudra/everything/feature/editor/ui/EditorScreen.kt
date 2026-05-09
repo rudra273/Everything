@@ -34,7 +34,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.Image
@@ -69,6 +68,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.rudra.everything.core.ui.AppBackButton
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.DeepBackground
 import com.rudra.everything.core.ui.GlassBackground
@@ -225,9 +225,7 @@ fun EditorScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-                    }
+                    AppBackButton(onClick = onBack)
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Editor",

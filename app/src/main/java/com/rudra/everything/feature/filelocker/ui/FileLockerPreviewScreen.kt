@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +46,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.rudra.everything.core.ui.AppBackButton
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.GlassLoadingIndicator
 import com.rudra.everything.core.ui.MutedText
@@ -79,15 +79,7 @@ fun FileLockerPreviewScreen(
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .glassSurface(RoundedCornerShape(19.dp), selected = false),
-                    ) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-                    }
-                    Spacer(Modifier.width(12.dp))
+                    AppBackButton(onClick = onBack)
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = item.name,

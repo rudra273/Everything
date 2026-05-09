@@ -39,7 +39,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Apps
@@ -97,6 +96,7 @@ import com.rudra.everything.AppContainer
 import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.permissions.AppLockPermissionState
 import com.rudra.everything.core.permissions.PermissionIntents
+import com.rudra.everything.core.ui.AppBackButton
 import com.rudra.everything.core.ui.GlassLoadingIndicator
 import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.ui.Cyan
@@ -333,8 +333,8 @@ fun DashboardScreen(
         matchesTool("Images") ||
         matchesTool("Videos")
     val showSecurity = showAppLock || showKeyStore || showNotes || showFileLocker
-    val showProductivity = showHabit || showReminder || showExpenses || showEditor
-    val showNetwork = showDnsManager
+    val showProductivity = showHabit || showReminder || showExpenses
+    val showOther = showEditor || showDnsManager
     AppSurface {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -485,17 +485,10 @@ fun DashboardScreen(
                         onClick = onOpenExpenses,
                     )
                 }
-                if (showEditor) item {
-                    ToolGridItem(
-                        iconResId = com.rudra.everything.R.drawable.ic_notes_editor,
-                        title = "Editor",
-                        onClick = onOpenEditor,
-                    )
-                }
-                if (showNetwork) {
+                if (showOther) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
-                            text = "Network",
+                            text = "Other",
                             color = SoftText,
                             style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
                             fontWeight = FontWeight.SemiBold,
@@ -504,6 +497,13 @@ fun DashboardScreen(
                         )
                     }
                 }
+                if (showEditor) item {
+                    ToolGridItem(
+                        iconResId = com.rudra.everything.R.drawable.ic_notes_editor,
+                        title = "Editor",
+                        onClick = onOpenEditor,
+                    )
+                }
                 if (showDnsManager) item {
                     ToolGridItem(
                         iconResId = com.rudra.everything.R.drawable.ic_dns_manager,
@@ -511,7 +511,7 @@ fun DashboardScreen(
                         onClick = onOpenDnsManager,
                     )
                 }
-                if (!showSecurity && !showProductivity && !showNetwork) {
+                if (!showSecurity && !showProductivity && !showOther) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             text = "No tools found",
@@ -1165,9 +1165,7 @@ fun AppLockScreen(
                         .padding(horizontal = 8.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-                    }
+                    AppBackButton(onClick = onBack)
                     Spacer(Modifier.width(4.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -1510,9 +1508,7 @@ private fun UtilityUnlockScreen(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-                    }
+                    AppBackButton(onClick = onBack)
                     Spacer(Modifier.width(4.dp))
                     Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }

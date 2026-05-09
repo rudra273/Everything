@@ -21,10 +21,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -515,6 +520,33 @@ fun SecondaryButton(
     ) {
         leadingIcon?.invoke()
         Text(text = text, fontWeight = FontWeight.SemiBold, style = textStyle)
+    }
+}
+
+@Composable
+fun AppBackButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .width(50.dp)
+            .height(40.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier
+                .size(38.dp)
+                .glassSurface(RoundedCornerShape(19.dp), selected = false),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Rounded.ArrowBack,
+                contentDescription = "Back",
+                tint = SoftText,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 

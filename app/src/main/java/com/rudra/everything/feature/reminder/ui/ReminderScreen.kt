@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Delete
@@ -63,6 +62,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rudra.everything.AppContainer
+import com.rudra.everything.core.ui.AppBackButton
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.DangerRed
 import com.rudra.everything.core.ui.GlassBackground
@@ -167,9 +167,7 @@ fun ReminderScreen(
 @Composable
 private fun ReminderTopBar(onBack: () -> Unit, onAdd: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-        }
+        AppBackButton(onClick = onBack)
         Column(modifier = Modifier.weight(1f)) {
             Text("Reminder", color = SoftText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text("Notifications stay until you complete them.", color = MutedText, style = MaterialTheme.typography.bodySmall)
@@ -290,9 +288,7 @@ private fun ReminderEditorPage(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onDismiss, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-            }
+            AppBackButton(onClick = onDismiss)
             Text(
                 "Add Reminder",
                 color = SoftText,

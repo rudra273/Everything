@@ -29,7 +29,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -77,6 +76,7 @@ import androidx.fragment.app.FragmentActivity
 import com.rudra.everything.AppContainer
 import com.rudra.everything.core.data.SecureSettingRepository
 import com.rudra.everything.core.security.BiometricAuthenticator
+import com.rudra.everything.core.ui.AppBackButton
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.GlassFilterButton
@@ -260,9 +260,7 @@ fun KeyStoreScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-                    }
+                    AppBackButton(onClick = onBack)
                     Spacer(Modifier.width(4.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Key Store", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -431,9 +429,7 @@ private fun KeyStoreUnlockScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-            }
+            AppBackButton(onClick = onBack)
             Spacer(Modifier.width(4.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("Key Store", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -512,9 +508,7 @@ private fun AddKeyScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-                }
+                AppBackButton(onClick = onBack)
                 Spacer(Modifier.width(4.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Add Key", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)

@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Edit
@@ -70,6 +69,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rudra.everything.AppContainer
+import com.rudra.everything.core.ui.AppBackButton
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.DangerRed
 import com.rudra.everything.core.ui.DangerRedMuted
@@ -428,9 +428,7 @@ private fun ExpenseTopBar(
     onNext: () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-        }
+        AppBackButton(onClick = onBack)
         Column(modifier = Modifier.weight(1f)) {
             Text("Expenses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(monthLabel(selectedMonth), color = Cyan, style = MaterialTheme.typography.bodySmall)
@@ -987,9 +985,7 @@ private fun ManageBillsPage(
     onStopBill: (MonthlyBill) -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = SoftText)
-        }
+        AppBackButton(onClick = onBack)
         Column(modifier = Modifier.weight(1f)) {
             Text("Monthly Bills", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text("${bills.count { it.active }} active schedules", color = Cyan, style = MaterialTheme.typography.bodySmall)
