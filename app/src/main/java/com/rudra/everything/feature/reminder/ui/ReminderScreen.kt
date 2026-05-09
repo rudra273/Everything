@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +64,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rudra.everything.AppContainer
 import com.rudra.everything.core.ui.Cyan
+import com.rudra.everything.core.ui.DangerRed
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.GlassLoadingIndicator
 import com.rudra.everything.core.ui.MutedText
@@ -94,8 +96,9 @@ fun ReminderScreen(
         .observeReminders()
         .collectAsStateWithLifecycle(initialValue = null)
     var addOpen by remember { mutableStateOf(false) }
+    var deleteReminder by remember { mutableStateOf<Reminder?>(null) }
 
-    BackHandler(enabled = !addOpen, onBack = onBack)
+    BackHandler(enabled = !addOpen && deleteReminder == null, onBack = onBack)
 
     GlassBackground {
         if (addOpen) {
@@ -138,14 +141,25 @@ fun ReminderScreen(
                         }
                     },
                     onDelete = { reminder ->
+                        deleteReminder = reminder
+                    },
+                )
+            }
+        }
+
+        deleteReminder?.let { reminder ->
+            DeleteReminderDialog(
+                reminder = reminder,
+                onDismiss = { deleteReminder = null },
+                onConfirm = {
+                    deleteReminder = null
                         scope.launch {
                             container.reminderRepository.deleteReminder(reminder.reminderId)
                             scheduler.cancel(reminder.reminderId)
                             NotificationManagerCompat.from(context).cancel(ReminderNotifier.notificationId(reminder.reminderId))
                         }
-                    },
-                )
-            }
+                },
+            )
         }
     }
 }
@@ -344,6 +358,39 @@ private fun ReminderEditorPage(
             )
         }
     }
+}
+
+@Composable
+private fun DeleteReminderDialog(
+    reminder: Reminder,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete Reminder", fontWeight = FontWeight.Bold) },
+        text = {
+            Text(
+                "Remove '${reminder.title}'?",
+                color = MutedText,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Delete", color = DangerRed, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = MutedText)
+            }
+        },
+        containerColor = PanelAlt,
+        titleContentColor = SoftText,
+        textContentColor = SoftText,
+        shape = RoundedCornerShape(12.dp),
+    )
 }
 
 @Composable

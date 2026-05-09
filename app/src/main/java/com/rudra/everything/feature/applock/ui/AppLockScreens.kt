@@ -473,7 +473,7 @@ fun DashboardScreen(
                 }
                 if (showReminder) item {
                     ToolGridItem(
-                        iconResId = com.rudra.everything.R.drawable.ic_todo_tracker,
+                        iconResId = com.rudra.everything.R.drawable.ic_reminder,
                         title = "Reminder",
                         onClick = onOpenReminder,
                     )
