@@ -40,24 +40,34 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.AttachMoney
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -91,6 +101,7 @@ import com.rudra.everything.core.ui.GlassLoadingIndicator
 import com.rudra.everything.core.security.BiometricAuthenticator
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
+import com.rudra.everything.core.ui.PanelAlt
 import com.rudra.everything.core.ui.PrimaryButton
 import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.SecondaryButton
@@ -99,9 +110,16 @@ import com.rudra.everything.core.ui.Stroke
 import com.rudra.everything.core.ui.glassSurface
 import com.rudra.everything.feature.applock.domain.InstalledApp
 import com.rudra.everything.feature.applock.domain.SamsungSecureFolderSupport
+import com.rudra.everything.feature.habit.data.Habit
+import com.rudra.everything.feature.habit.data.HabitDashboard
+import com.rudra.everything.feature.habit.data.HabitGoalType
+import com.rudra.everything.feature.habit.data.HabitLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 private enum class AppLockListTab {
     Unlocked,
@@ -268,6 +286,7 @@ fun PermissionGrantScreen(
 
 @Composable
 fun DashboardScreen(
+    container: AppContainer,
     lockedCount: Int,
     onOpenAppLock: () -> Unit,
     onOpenKeyStore: () -> Unit,
@@ -279,7 +298,19 @@ fun DashboardScreen(
     onOpenFileLocker: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
+    var widgetPickerOpen by remember { mutableStateOf(false) }
+    var expenseDialogOpen by remember { mutableStateOf(false) }
+    val expenseWidgetEnabled by container.secureSettingRepository
+        .observeBoolean(SecureSettingRepository.KEY_WIDGET_EXPENSES)
+        .collectAsStateWithLifecycle(initialValue = false)
+    val habitWidgetEnabled by container.secureSettingRepository
+        .observeBoolean(SecureSettingRepository.KEY_WIDGET_HABITS)
+        .collectAsStateWithLifecycle(initialValue = false)
+    val habitDashboard by container.habitRepository
+        .observeDashboard()
+        .collectAsStateWithLifecycle(initialValue = null)
     val normalizedSearch = searchQuery.trim()
     fun matchesTool(title: String): Boolean = normalizedSearch.isBlank() ||
         title.contains(normalizedSearch, ignoreCase = true)
@@ -345,6 +376,28 @@ fun DashboardScreen(
                 ),
                 shape = RoundedCornerShape(20.dp)
             )
+
+            if (normalizedSearch.isBlank()) {
+                DashboardWidgetsSection(
+                    expenseWidgetEnabled = expenseWidgetEnabled == true,
+                    habitWidgetEnabled = habitWidgetEnabled == true,
+                    habitDashboard = habitDashboard,
+                    onOpenPicker = { widgetPickerOpen = true },
+                    onAddExpense = { expenseDialogOpen = true },
+                    onToggleHabit = { habit, completed ->
+                        scope.launch {
+                            container.habitRepository.saveDailyProgress(
+                                habitId = habit.habitId,
+                                date = LocalDate.now(),
+                                minutes = if (completed && habit.goalType == HabitGoalType.Time) habit.targetMinutes.coerceAtLeast(1) else 0,
+                                progressCount = if (completed && habit.goalType == HabitGoalType.Count) habit.targetCount.coerceAtLeast(1) else 0,
+                                completed = completed,
+                                note = "",
+                            )
+                        }
+                    },
+                )
+            }
 
             // ── Tool grid items ──
             LazyVerticalGrid(
@@ -460,7 +513,438 @@ fun DashboardScreen(
             }
         }
     }
+
+    if (widgetPickerOpen) {
+        WidgetPickerDialog(
+            expenseEnabled = expenseWidgetEnabled == true,
+            habitEnabled = habitWidgetEnabled == true,
+            onExpenseChange = { enabled ->
+                scope.launch {
+                    container.secureSettingRepository.putBoolean(SecureSettingRepository.KEY_WIDGET_EXPENSES, enabled)
+                }
+            },
+            onHabitChange = { enabled ->
+                scope.launch {
+                    container.secureSettingRepository.putBoolean(SecureSettingRepository.KEY_WIDGET_HABITS, enabled)
+                }
+            },
+            onDismiss = { widgetPickerOpen = false },
+        )
+    }
+
+    if (expenseDialogOpen) {
+        QuickExpenseDialog(
+            onDismiss = { expenseDialogOpen = false },
+            onSave = { name, amountMinor, category, note ->
+                scope.launch {
+                    container.expenseRepository.addDailyExpense(
+                        expenseDate = LocalDate.now().toString(),
+                        title = name,
+                        category = category,
+                        amountMinor = amountMinor,
+                        note = note,
+                    )
+                    expenseDialogOpen = false
+                }
+            },
+        )
+    }
 }
+
+@Composable
+private fun DashboardWidgetsSection(
+    expenseWidgetEnabled: Boolean,
+    habitWidgetEnabled: Boolean,
+    habitDashboard: HabitDashboard?,
+    onOpenPicker: () -> Unit,
+    onAddExpense: () -> Unit,
+    onToggleHabit: (Habit, Boolean) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Widgets",
+                color = SoftText,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            SecondaryButton(
+                text = "+ Add",
+                modifier = Modifier.width(86.dp).height(34.dp),
+                textStyle = MaterialTheme.typography.labelMedium,
+                onClick = onOpenPicker,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            if (expenseWidgetEnabled) {
+                ExpenseQuickAddWidget(
+                    modifier = Modifier.weight(1f),
+                    onAddExpense = onAddExpense,
+                )
+            }
+            if (habitWidgetEnabled) {
+                HabitCheckInWidget(
+                    dashboard = habitDashboard,
+                    modifier = Modifier.weight(1f),
+                    onToggleHabit = onToggleHabit,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpenseQuickAddWidget(
+    modifier: Modifier,
+    onAddExpense: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .height(116.dp)
+            .glassSurface(RoundedCornerShape(18.dp), selected = false, tintStrength = 0.14f),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Rounded.ReceiptLong, contentDescription = null, tint = Cyan, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Expenses",
+                    color = SoftText,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Text("Add today's spend", color = MutedText, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+            PrimaryButton(
+                text = "Add $",
+                modifier = Modifier.fillMaxWidth().height(38.dp),
+                leadingIcon = {
+                    Icon(Icons.Rounded.AttachMoney, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                },
+                onClick = onAddExpense,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HabitCheckInWidget(
+    dashboard: HabitDashboard?,
+    modifier: Modifier,
+    onToggleHabit: (Habit, Boolean) -> Unit,
+) {
+    val activeHabits = dashboard?.buildHabits.orEmpty()
+    Box(
+        modifier = modifier
+            .height(116.dp)
+            .glassSurface(RoundedCornerShape(18.dp), selected = false, tintStrength = 0.14f),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = Cyan, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Habits",
+                    color = SoftText,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            when {
+                dashboard == null -> Text("Loading...", color = MutedText, style = MaterialTheme.typography.bodySmall)
+                activeHabits.isEmpty() -> Text("No active habits", color = MutedText, style = MaterialTheme.typography.bodySmall)
+                else -> LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(activeHabits, key = { it.habitId }) { habit ->
+                        CompactHabitRow(
+                            habit = habit,
+                            log = dashboard.logFor(habit.habitId),
+                            onToggleHabit = onToggleHabit,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactHabitRow(
+    habit: Habit,
+    log: HabitLog?,
+    onToggleHabit: (Habit, Boolean) -> Unit,
+) {
+    val completed = isHabitLogComplete(habit, log)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onToggleHabit(habit, !completed) }
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = if (completed) Icons.Rounded.Check else Icons.Rounded.RadioButtonUnchecked,
+            contentDescription = if (completed) "Checked in" else "Check in",
+            tint = if (completed) Cyan else MutedText,
+            modifier = Modifier.size(17.dp),
+        )
+        Text(
+            text = habit.name,
+            color = SoftText,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = "${(habitProgress(habit, log) * 100).roundToInt()}%",
+            color = MutedText,
+            style = MaterialTheme.typography.labelSmall,
+        )
+    }
+}
+
+@Composable
+private fun WidgetPickerDialog(
+    expenseEnabled: Boolean,
+    habitEnabled: Boolean,
+    onExpenseChange: (Boolean) -> Unit,
+    onHabitChange: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add widgets", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                WidgetToggleRow(
+                    title = "Expenses",
+                    subtitle = "Quick add daily spend",
+                    checked = expenseEnabled,
+                    onCheckedChange = onExpenseChange,
+                )
+                WidgetToggleRow(
+                    title = "Habits",
+                    subtitle = "Compact daily check-in",
+                    checked = habitEnabled,
+                    onCheckedChange = onHabitChange,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Done", color = Cyan, fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = PanelAlt,
+        titleContentColor = SoftText,
+        textContentColor = SoftText,
+        shape = RoundedCornerShape(14.dp),
+    )
+}
+
+@Composable
+private fun WidgetToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = SoftText, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = MutedText, style = MaterialTheme.typography.bodySmall)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun QuickExpenseDialog(
+    onDismiss: () -> Unit,
+    onSave: (String, Long, String, String) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf(DASHBOARD_EXPENSE_CATEGORIES.first()) }
+    var note by remember { mutableStateOf("") }
+    val amountMinor = amount.toDashboardMinorOrNull()
+    val canSave = name.isNotBlank() && amountMinor != null && amountMinor > 0L
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add daily expense", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                DashboardTextField(value = name, onValueChange = { name = it }, label = "Name")
+                DashboardTextField(
+                    value = amount,
+                    onValueChange = { amount = it.cleanDashboardAmountInput() },
+                    label = "Amount",
+                    keyboardType = KeyboardType.Decimal,
+                )
+                DashboardCategoryPicker(category = category, onCategoryChange = { category = it })
+                DashboardTextField(value = note, onValueChange = { note = it.take(160) }, label = "Note")
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = canSave,
+                onClick = { onSave(name, amountMinor ?: 0L, category, note) },
+            ) {
+                Text("Save", color = if (canSave) Cyan else MutedText, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = MutedText)
+            }
+        },
+        containerColor = PanelAlt,
+        titleContentColor = SoftText,
+        textContentColor = SoftText,
+        shape = RoundedCornerShape(14.dp),
+    )
+}
+
+@Composable
+private fun DashboardTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    keyboardType: KeyboardType = KeyboardType.Text,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, style = MaterialTheme.typography.bodySmall) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Cyan,
+            unfocusedBorderColor = Stroke,
+            focusedLabelColor = Cyan,
+            unfocusedLabelColor = MutedText,
+            cursorColor = Cyan,
+            focusedTextColor = SoftText,
+            unfocusedTextColor = SoftText,
+            focusedContainerColor = Color.White.copy(alpha = 0.08f),
+            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+        ),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun DashboardCategoryPicker(
+    category: String,
+    onCategoryChange: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White.copy(alpha = 0.05f))
+                .clickable { expanded = true }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Category", color = MutedText, style = MaterialTheme.typography.bodySmall)
+                Text(category, color = SoftText, fontWeight = FontWeight.SemiBold)
+            }
+            Icon(Icons.AutoMirrored.Rounded.ReceiptLong, contentDescription = null, tint = Cyan, modifier = Modifier.size(18.dp))
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(PanelAlt),
+        ) {
+            DASHBOARD_EXPENSE_CATEGORIES.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option, color = SoftText) },
+                    onClick = {
+                        onCategoryChange(option)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+private fun habitProgress(habit: Habit, log: HabitLog?): Float {
+    if (log == null) return 0f
+    return when (habit.goalType) {
+        HabitGoalType.Time -> if (habit.targetMinutes <= 0) {
+            if (log.completed) 1f else 0f
+        } else {
+            log.minutes.toFloat() / habit.targetMinutes
+        }
+        HabitGoalType.Count -> if (habit.targetCount <= 0) {
+            if (log.completed) 1f else 0f
+        } else {
+            log.progressCount.toFloat() / habit.targetCount
+        }
+        HabitGoalType.Check -> if (log.completed) 1f else 0f
+    }.coerceIn(0f, 1f)
+}
+
+private fun isHabitLogComplete(habit: Habit, log: HabitLog?): Boolean {
+    if (log == null) return false
+    return when (habit.goalType) {
+        HabitGoalType.Time -> if (habit.targetMinutes <= 0) log.minutes > 0 || log.completed else log.minutes >= habit.targetMinutes
+        HabitGoalType.Count -> if (habit.targetCount <= 0) log.progressCount > 0 || log.completed else log.progressCount >= habit.targetCount
+        HabitGoalType.Check -> log.completed
+    }
+}
+
+private fun String.cleanDashboardAmountInput(): String {
+    val filtered = filter { it.isDigit() || it == '.' }
+    val firstDot = filtered.indexOf('.')
+    return if (firstDot == -1) {
+        filtered.take(9)
+    } else {
+        filtered.take(firstDot + 1) + filtered.drop(firstDot + 1).filter(Char::isDigit).take(2)
+    }
+}
+
+private fun String.toDashboardMinorOrNull(): Long? {
+    val value = toDoubleOrNull() ?: return null
+    return (value * 100.0).roundToLong()
+}
+
+private val DASHBOARD_EXPENSE_CATEGORIES = listOf(
+    "General",
+    "Food",
+    "Travel",
+    "Shopping",
+    "Bills",
+    "Health",
+    "Work",
+    "Other",
+)
 
 @Composable
 private fun ToolGridItem(

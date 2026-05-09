@@ -193,6 +193,7 @@ private fun EverythingApp(
         )
 
         route == MainRoute.Dashboard -> DashboardScreen(
+            container = container,
             lockedCount = lockedApps.size,
             onOpenAppLock = { route = MainRoute.AppLock },
             onOpenKeyStore = { route = MainRoute.KeyStore },
