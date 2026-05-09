@@ -25,12 +25,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.KeyboardArrowLeft
-import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Savings
@@ -433,8 +433,10 @@ private fun ExpenseTopBar(
             Text("Expenses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(monthLabel(selectedMonth), color = Cyan, style = MaterialTheme.typography.bodySmall)
         }
-        MonthIconButton(Icons.Rounded.KeyboardArrowLeft, "Previous month", onPrevious)
-        MonthIconButton(Icons.Rounded.KeyboardArrowRight, "Next month", onNext)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            MonthIconButton(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Previous month", onPrevious)
+            MonthIconButton(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Next month", onNext)
+        }
     }
 }
 
@@ -447,11 +449,16 @@ private fun MonthIconButton(
     IconButton(
         onClick = onClick,
         modifier = Modifier
-            .size(36.dp)
+            .size(38.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(Color.White.copy(alpha = 0.06f)),
     ) {
-        Icon(icon, contentDescription = description, tint = SoftText)
+        Icon(
+            icon,
+            contentDescription = description,
+            tint = SoftText,
+            modifier = Modifier.size(22.dp),
+        )
     }
 }
 
@@ -707,11 +714,11 @@ private fun MonthPickerField(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    MonthIconButton(Icons.Rounded.KeyboardArrowLeft, "Previous month") {
+                    MonthIconButton(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Previous month") {
                         draftMonth = draftMonth.minusMonths(1)
                     }
                     Text(monthLabel(draftMonth), color = SoftText, fontWeight = FontWeight.SemiBold)
-                    MonthIconButton(Icons.Rounded.KeyboardArrowRight, "Next month") {
+                    MonthIconButton(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Next month") {
                         draftMonth = draftMonth.plusMonths(1)
                     }
                 }
