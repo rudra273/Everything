@@ -20,10 +20,14 @@
     </style>
 
     <style name="Theme.Everything.WidgetDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="android:colorAccent">@color/teal_accent</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowIsFloating">true</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
         <item name="android:windowCloseOnTouchOutside">true</item>
-        <item name="android:windowMinWidthMajor">86%</item>
-        <item name="android:windowMinWidthMinor">86%</item>
+        <item name="android:windowMinWidthMajor">72%</item>
+        <item name="android:windowMinWidthMinor">82%</item>
     </style>
 </resources>

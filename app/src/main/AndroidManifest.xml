@@ -42,6 +42,10 @@
             android:name=".feature.widget.QuickExpenseWidgetActivity"
             android:excludeFromRecents="true"
             android:exported="false"
+            android:finishOnTaskLaunch="true"
+            android:launchMode="singleTop"
+            android:noHistory="true"
+            android:taskAffinity=""
             android:theme="@style/Theme.Everything.WidgetDialog" />
 
         <activity

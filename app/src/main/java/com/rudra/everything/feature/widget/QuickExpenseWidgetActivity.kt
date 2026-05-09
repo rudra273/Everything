@@ -1,6 +1,8 @@
 package com.rudra.everything.feature.widget
 
 import android.os.Bundle
+import android.view.Window
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.fragment.app.FragmentActivity
@@ -9,6 +11,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -47,6 +51,10 @@ import kotlin.math.roundToLong
 class QuickExpenseWidgetActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestWindowFeature(Window.FEATURE_NO_TITLE)
+        setFinishOnTouchOutside(true)
+        window.setDimAmount(0.45f)
+        window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         val repository = (application as EverythingApplication).container.expenseRepository
         setContent {
             EverythingTheme {
@@ -97,11 +105,11 @@ private fun QuickExpenseWidgetContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Panel, RoundedCornerShape(18.dp))
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .background(Panel, RoundedCornerShape(14.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("Add daily expense", color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Add expense", color = SoftText, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         WidgetTextField(value = name, onValueChange = { name = it }, label = "Name")
         WidgetTextField(
             value = amount,
@@ -112,13 +120,13 @@ private fun QuickExpenseWidgetContent(
         WidgetCategoryPicker(category = category, onCategoryChange = { category = it })
         WidgetTextField(value = note, onValueChange = { note = it.take(160) }, label = "Note")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+            TextButton(onClick = onDismiss, modifier = Modifier.weight(1f).height(38.dp)) {
                 Text("Cancel", color = MutedText)
             }
             Button(
                 onClick = { onSave(name, amountMinor ?: 0L, category, note) },
                 enabled = canSave,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).height(38.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Cyan,
                     disabledContainerColor = PanelAlt,
@@ -146,6 +154,7 @@ private fun WidgetTextField(
         label = { Text(label, style = MaterialTheme.typography.bodySmall) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        textStyle = MaterialTheme.typography.bodySmall,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Cyan,
             unfocusedBorderColor = Stroke,
@@ -158,7 +167,7 @@ private fun WidgetTextField(
             unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
         ),
         shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
     )
 }
 
@@ -173,11 +182,12 @@ private fun WidgetCategoryPicker(
             onClick = { expanded = true },
             modifier = Modifier
                 .fillMaxWidth()
+                .height(48.dp)
                 .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp)),
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text("Category", color = MutedText, style = MaterialTheme.typography.bodySmall)
-                Text(category, color = SoftText, fontWeight = FontWeight.SemiBold)
+                Text("Category", color = MutedText, style = MaterialTheme.typography.labelSmall)
+                Text(category, color = SoftText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
             }
         }
         DropdownMenu(
