@@ -293,6 +293,7 @@ fun DashboardScreen(
     onOpenNotes: () -> Unit,
     onOpenEditor: () -> Unit,
     onOpenHabit: () -> Unit,
+    onOpenReminder: () -> Unit,
     onOpenExpenses: () -> Unit,
     onOpenDnsManager: () -> Unit,
     onOpenFileLocker: () -> Unit,
@@ -318,6 +319,9 @@ fun DashboardScreen(
     val showKeyStore = matchesTool("Key Store")
     val showNotes = matchesTool("Notes")
     val showHabit = matchesTool("Habit")
+    val showReminder = matchesTool("Reminder") ||
+        matchesTool("Notification") ||
+        matchesTool("Alarm")
     val showExpenses = matchesTool("Expenses")
     val showEditor = matchesTool("Editor")
     val showDnsManager = matchesTool("DNS") ||
@@ -329,7 +333,7 @@ fun DashboardScreen(
         matchesTool("Images") ||
         matchesTool("Videos")
     val showSecurity = showAppLock || showKeyStore || showNotes || showFileLocker
-    val showProductivity = showHabit || showExpenses || showEditor
+    val showProductivity = showHabit || showReminder || showExpenses || showEditor
     val showNetwork = showDnsManager
     AppSurface {
         Column(
@@ -465,6 +469,13 @@ fun DashboardScreen(
                         iconResId = com.rudra.everything.R.drawable.ic_todo_tracker,
                         title = "Habit",
                         onClick = onOpenHabit,
+                    )
+                }
+                if (showReminder) item {
+                    ToolGridItem(
+                        iconResId = com.rudra.everything.R.drawable.ic_todo_tracker,
+                        title = "Reminder",
+                        onClick = onOpenReminder,
                     )
                 }
                 if (showExpenses) item {

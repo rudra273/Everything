@@ -23,6 +23,7 @@ import com.rudra.everything.feature.keystore.data.KeyStoreBackupContributor
 import com.rudra.everything.feature.keystore.data.KeyStoreRepository
 import com.rudra.everything.feature.notes.data.SecureNoteBackupContributor
 import com.rudra.everything.feature.notes.data.SecureNoteRepository
+import com.rudra.everything.feature.reminder.data.ReminderRepository
 
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
@@ -57,6 +58,10 @@ class AppContainer(context: Context) {
 
     val habitRepository: HabitRepository by lazy {
         HabitRepository(database.habitDao())
+    }
+
+    val reminderRepository: ReminderRepository by lazy {
+        ReminderRepository(database.reminderDao())
     }
 
     val backupService: EverythingBackupService by lazy {

@@ -40,6 +40,7 @@ import com.rudra.everything.feature.filelocker.ui.FileLockerScreen
 import com.rudra.everything.feature.habit.ui.HabitScreen
 import com.rudra.everything.feature.keystore.ui.KeyStoreScreen
 import com.rudra.everything.feature.notes.ui.SecureNotesScreen
+import com.rudra.everything.feature.reminder.ui.ReminderScreen
 import com.rudra.everything.feature.settings.ui.BackupRestoreScreen
 import com.rudra.everything.feature.settings.ui.SettingsScreen
 import com.rudra.everything.feature.settings.ui.ThemeScreen
@@ -77,6 +78,7 @@ private enum class MainRoute {
     Notes,
     Editor,
     Habit,
+    Reminder,
     Expenses,
     DnsManager,
     FileLocker,
@@ -200,6 +202,7 @@ private fun EverythingApp(
             onOpenNotes = { route = MainRoute.Notes },
             onOpenEditor = { route = MainRoute.Editor },
             onOpenHabit = { route = MainRoute.Habit },
+            onOpenReminder = { route = MainRoute.Reminder },
             onOpenExpenses = { route = MainRoute.Expenses },
             onOpenDnsManager = { route = MainRoute.DnsManager },
             onOpenFileLocker = { route = MainRoute.FileLocker },
@@ -237,6 +240,11 @@ private fun EverythingApp(
         )
 
         route == MainRoute.Habit -> HabitScreen(
+            container = container,
+            onBack = { route = MainRoute.Dashboard },
+        )
+
+        route == MainRoute.Reminder -> ReminderScreen(
             container = container,
             onBack = { route = MainRoute.Dashboard },
         )

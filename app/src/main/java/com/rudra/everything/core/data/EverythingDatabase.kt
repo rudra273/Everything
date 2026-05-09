@@ -20,6 +20,8 @@ import com.rudra.everything.feature.keystore.data.KeyStoreEntryDao
 import com.rudra.everything.feature.keystore.data.KeyStoreEntryEntity
 import com.rudra.everything.feature.notes.data.SecureNoteDao
 import com.rudra.everything.feature.notes.data.SecureNoteEntity
+import com.rudra.everything.feature.reminder.data.ReminderDao
+import com.rudra.everything.feature.reminder.data.ReminderEntity
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
@@ -34,8 +36,9 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         SecureNoteEntity::class,
         HabitEntity::class,
         HabitLogEntity::class,
+        ReminderEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class EverythingDatabase : RoomDatabase() {
@@ -45,6 +48,7 @@ abstract class EverythingDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun secureNoteDao(): SecureNoteDao
     abstract fun habitDao(): HabitDao
+    abstract fun reminderDao(): ReminderDao
 
     companion object {
         fun create(
@@ -67,6 +71,7 @@ abstract class EverythingDatabase : RoomDatabase() {
                     MIGRATION_5_6,
                     MIGRATION_6_7,
                     MIGRATION_7_8,
+                    MIGRATION_8_9,
                     MIGRATION_7_6,
                 )
                 .build()
@@ -349,6 +354,26 @@ abstract class EverythingDatabase : RoomDatabase() {
                 )
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_habit_logs_logId` ON `habit_logs` (`logId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_habit_logs_habitId_date` ON `habit_logs` (`habitId`, `date`)")
+            }
+        }
+
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `reminders` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `reminderId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `scheduledAtMillis` INTEGER NOT NULL,
+                        `completed` INTEGER NOT NULL,
+                        `acknowledgedAtMillis` INTEGER,
+                        `createdAtMillis` INTEGER NOT NULL,
+                        `updatedAtMillis` INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_reminders_reminderId` ON `reminders` (`reminderId`)")
             }
         }
     }

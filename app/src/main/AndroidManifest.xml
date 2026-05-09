@@ -78,6 +78,10 @@
         </provider>
 
         <receiver
+            android:name=".feature.reminder.notification.ReminderActionReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".core.security.EverythingDeviceAdmin"
             android:exported="true"
             android:permission="android.permission.BIND_DEVICE_ADMIN">
