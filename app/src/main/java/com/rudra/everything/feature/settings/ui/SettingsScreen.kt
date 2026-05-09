@@ -202,6 +202,7 @@ fun SettingsScreen(
     var pendingUtilityDisable by remember { mutableStateOf<UtilityLockDisableRequest?>(null) }
     var utilityDisablePin by remember { mutableStateOf("") }
     var utilityDisableError by remember { mutableStateOf<String?>(null) }
+    var showAccessibilityDisclosure by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         container.secureSettingRepository
@@ -303,20 +304,6 @@ fun SettingsScreen(
                 title = "Backup & Restore",
                 subtitle = "Backup password, Google Drive, and local files",
                 onClick = onOpenBackupRestore,
-            )
-
-            SettingsNavigationRow(
-                icon = Icons.Rounded.Info,
-                title = "About Everything",
-                subtitle = "Tools, security model, and backup details",
-                onClick = onOpenAboutApp,
-            )
-
-            SettingsNavigationRow(
-                icon = Icons.Rounded.Policy,
-                title = "Privacy Policy",
-                subtitle = "Data handling, permissions, and your choices",
-                onClick = onOpenPrivacyPolicy,
             )
 
             SettingsSectionTitle("Protection")
@@ -662,8 +649,12 @@ fun SettingsScreen(
                 },
                 selected = accessibilityEnabled,
                 onClick = {
-                    runCatching {
-                        context.startActivity(PermissionIntents.accessibilitySettings())
+                    if (accessibilityEnabled) {
+                        runCatching {
+                            context.startActivity(PermissionIntents.accessibilitySettings())
+                        }
+                    } else {
+                        showAccessibilityDisclosure = true
                     }
                 },
             )
@@ -730,6 +721,22 @@ fun SettingsScreen(
                 title = "Theme",
                 subtitle = "Choose the app theme",
                 onClick = onOpenTheme,
+            )
+
+            SettingsSectionTitle("Information")
+
+            SettingsNavigationRow(
+                icon = Icons.Rounded.Info,
+                title = "About Everything",
+                subtitle = "Tools, security model, and backup details",
+                onClick = onOpenAboutApp,
+            )
+
+            SettingsNavigationRow(
+                icon = Icons.Rounded.Policy,
+                title = "Privacy Policy",
+                subtitle = "Data handling, permissions, and your choices",
+                onClick = onOpenPrivacyPolicy,
             )
 
                 Spacer(Modifier.height(24.dp))
@@ -895,6 +902,53 @@ fun SettingsScreen(
             titleContentColor = SoftText,
             textContentColor = SoftText,
             shape = RoundedCornerShape(14.dp),
+        )
+    }
+
+    if (showAccessibilityDisclosure) {
+        AlertDialog(
+            onDismissRequest = { showAccessibilityDisclosure = false },
+            title = { Text("Accessibility access for App Lock", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Everything uses Accessibility access only to detect when apps you selected for App Lock open, then show the Everything lock screen.",
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        "Everything does not read screen text, collect typed content, collect passwords, perform clicks, make purchases, send messages, or share Accessibility data.",
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        "This permission is optional. If you agree, Android settings will open so you can enable Everything manually.",
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showAccessibilityDisclosure = false
+                        runCatching {
+                            context.startActivity(PermissionIntents.accessibilitySettings())
+                        }
+                    },
+                ) {
+                    Text("I agree")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAccessibilityDisclosure = false }) {
+                    Text("Not now")
+                }
+            },
+            containerColor = Color(0xFF202220),
+            titleContentColor = SoftText,
+            textContentColor = SoftText,
+            shape = RoundedCornerShape(18.dp),
         )
     }
 }

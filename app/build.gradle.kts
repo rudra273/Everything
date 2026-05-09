@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,6 +7,21 @@ plugins {
 }
 
 android {
+    val localPropertiesFile = rootProject.file("local.properties")
+    val localProperties = Properties().apply {
+        if (localPropertiesFile.isFile) {
+            localPropertiesFile.inputStream().use(::load)
+        }
+    }
+    val signingStoreFilePath = localProperties.getProperty("storeFile")
+    val signingStorePassword = localProperties.getProperty("storePassword")
+    val signingKeyAlias = localProperties.getProperty("keyAlias")
+    val signingKeyPassword = localProperties.getProperty("keyPassword")
+    val hasReleaseSigning = !signingStoreFilePath.isNullOrBlank() &&
+        !signingStorePassword.isNullOrBlank() &&
+        !signingKeyAlias.isNullOrBlank() &&
+        !signingKeyPassword.isNullOrBlank()
+
     namespace = "com.rudra.everything"
     compileSdk {
         version = release(36) {
@@ -28,8 +45,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(signingStoreFilePath!!)
+                storePassword = signingStorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -31,7 +30,6 @@ import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.SoftText
-import com.rudra.everything.core.ui.glassSurface
 
 @Composable
 fun AboutAppScreen(
@@ -137,10 +135,7 @@ fun AboutAppScreen(
 @Composable
 private fun AboutHero() {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .glassSurface(RoundedCornerShape(12.dp), selected = false, tintStrength = 0.06f)
-            .padding(14.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text("Everything", color = SoftText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -159,10 +154,7 @@ private fun AboutSection(
     body: List<String>,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .glassSurface(RoundedCornerShape(12.dp), selected = false, tintStrength = 0.04f)
-            .padding(14.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(title, color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

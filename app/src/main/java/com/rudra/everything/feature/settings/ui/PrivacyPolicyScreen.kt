@@ -1,6 +1,9 @@
 package com.rudra.everything.feature.settings.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -24,14 +26,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.rudra.everything.core.ui.AppBackButton
 import com.rudra.everything.core.ui.Cyan
 import com.rudra.everything.core.ui.GlassBackground
 import com.rudra.everything.core.ui.MutedText
 import com.rudra.everything.core.ui.SoftText
-import com.rudra.everything.core.ui.glassSurface
+
+private const val PRIVACY_POLICY_URL = "https://www.rosmox.com/projects/everything/privacy-policy"
 
 @Composable
 fun PrivacyPolicyScreen(
@@ -171,11 +176,9 @@ fun PrivacyPolicyScreen(
 
 @Composable
 private fun PolicyHeader() {
+    val context = LocalContext.current
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .glassSurface(RoundedCornerShape(12.dp), selected = false, tintStrength = 0.06f)
-            .padding(14.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text("Everything Privacy Policy", color = SoftText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -184,6 +187,17 @@ private fun PolicyHeader() {
             "This policy is written for the Everything Android app.",
             color = MutedText,
             style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            "Public policy URL: $PRIVACY_POLICY_URL",
+            modifier = Modifier.clickable {
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL)))
+                }
+            },
+            color = Cyan,
+            style = MaterialTheme.typography.bodySmall,
+            textDecoration = TextDecoration.Underline,
         )
     }
 }
@@ -194,10 +208,7 @@ private fun PolicySection(
     body: List<String>,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .glassSurface(RoundedCornerShape(12.dp), selected = false, tintStrength = 0.04f)
-            .padding(14.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(title, color = SoftText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
